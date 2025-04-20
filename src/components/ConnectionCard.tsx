@@ -132,7 +132,13 @@ const ConnectionCard = ({ connection, onConnect, isConnecting, disabled = false 
           <Button 
             className={`w-full ${connection.platform === "tiktok" ? "platform-tiktok" : "platform-youtube"}`}
             onClick={() => onConnect(connection.platform)}
-            disabled={isConnecting || disabled || (connection.status === "connected" && isConnectionExpired())}
+            disabled={
+              isConnecting || 
+              disabled || 
+              (connection.status !== undefined && 
+                ["connected"].includes(connection.status) && 
+                isConnectionExpired())
+            }
           >
             {isConnecting ? "Connecting..." : `Connect to ${connection.platform === "tiktok" ? "TikTok" : "YouTube"}`}
             {disabled && " (Login required)"}

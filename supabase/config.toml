@@ -1,1 +1,14 @@
+
 project_id = "tarjnmziaghkzosivsqk"
+
+[functions.tiktok-oauth]
+verify_jwt = true
+
+[functions.tiktok-oauth-callback]
+verify_jwt = false
+
+[functions.youtube-oauth]
+verify_jwt = true
+
+[functions.youtube-oauth-callback]
+verify_jwt = false

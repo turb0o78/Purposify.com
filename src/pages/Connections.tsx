@@ -1,29 +1,13 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Connection } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import ConnectionCard from "@/components/ConnectionCard";
 import { toast } from "@/components/ui/use-toast";
 import { Check } from "lucide-react";
-
-// Mock data for initial connections state
-const mockConnections: Connection[] = [
-  {
-    id: "tiktok-1",
-    platform: "tiktok",
-    name: "TikTok Demo",
-    status: "connected",
-    connected_at: new Date(),
-  },
-  {
-    id: "youtube-1",
-    platform: "youtube",
-    name: "YouTube Demo",
-    status: "connected",
-    connected_at: new Date(),
-  },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams } from "react-router-dom";
 
 const emptyConnections: Partial<Connection>[] = [
   {
@@ -37,53 +21,83 @@ const emptyConnections: Partial<Connection>[] = [
 ];
 
 const Connections = () => {
-  const [connections, setConnections] = useState<Connection[]>(mockConnections);
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [connecting, setConnecting] = useState<boolean>(false);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
 
-  const handleConnect = (platform: Connection['platform']) => {
-    setConnecting(true);
-    setConnectingPlatform(platform);
+  // Check URL parameters for OAuth callback results
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
 
-    // Simulate the OAuth flow - in production this would redirect to the platform auth
-    const platformConfig = {
-      tiktok: {
-        clientId: "sbawa90yd34c5s6msg",
-        redirectUri: "https://opaldesign.fr/dashboard/connections",
-      },
-      youtube: {
-        clientId: "716459993916-dtfg52nflg5jdrna5vtg2h4ahupvt7bs.apps.googleusercontent.com",
-        redirectUri: "https://opaldesign.fr/dashboard/connections",
-      },
-    };
-
-    // In a real app, this would redirect to the OAuth URL
-    console.log(`Connecting to ${platform} with config:`, platformConfig[platform]);
-    
-    // Instead, we'll simulate a successful connection after a delay
-    setTimeout(() => {
-      const newConnection: Connection = {
-        id: `${platform}-${Date.now()}`,
-        platform,
-        name: platform === "tiktok" ? "TikTok Account" : "YouTube Channel",
-        status: "connected",
-        connected_at: new Date(),
-      };
-      
-      setConnections(prev => [...prev.filter(c => c.platform !== platform), newConnection]);
-      setConnecting(false);
-      setConnectingPlatform(null);
-      
+    if (success) {
       toast({
         title: "Connection successful",
-        description: `Your ${platform === "tiktok" ? "TikTok" : "YouTube"} account has been connected.`,
+        description: "Your account has been connected successfully.",
         action: (
           <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
             <Check className="h-4 w-4 text-green-600" />
           </div>
         ),
       });
-    }, 2000);
+    } else if (error) {
+      toast({
+        title: "Connection failed",
+        description: decodeURIComponent(error),
+        variant: "destructive",
+      });
+    }
+  }, [searchParams]);
+
+  // Fetch existing connections
+  useEffect(() => {
+    const fetchConnections = async () => {
+      const { data: existingConnections, error } = await supabase
+        .from('platform_connections')
+        .select('*');
+
+      if (error) {
+        console.error('Error fetching connections:', error);
+        return;
+      }
+
+      setConnections(existingConnections.map(conn => ({
+        id: conn.id,
+        platform: conn.platform,
+        name: conn.platform_username || `${conn.platform} Account`,
+        status: "connected" as const,
+        avatar: conn.platform_avatar_url,
+        connected_at: new Date(conn.created_at),
+      })));
+    };
+
+    fetchConnections();
+  }, []);
+
+  const handleConnect = async (platform: Connection['platform']) => {
+    setConnecting(true);
+    setConnectingPlatform(platform);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(`${platform}-oauth`, {
+        method: 'POST',
+      });
+
+      if (error) throw error;
+
+      // Redirect to OAuth URL
+      window.location.href = data.url;
+    } catch (error) {
+      console.error(`Error initiating ${platform} OAuth:`, error);
+      toast({
+        title: "Connection failed",
+        description: `Failed to connect to ${platform}. Please try again.`,
+        variant: "destructive",
+      });
+      setConnecting(false);
+      setConnectingPlatform(null);
+    }
   };
 
   const getConnectionByPlatform = (platform: Connection['platform']): Partial<Connection> => {
@@ -137,15 +151,10 @@ const Connections = () => {
                     <code className="text-sm bg-gray-200 p-1 rounded">sbawa90yd34c5s6msg</code>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Client Secret</p>
-                    <div className="flex items-center gap-2">
-                      <code className="text-sm bg-gray-200 p-1 rounded">gw5030vHFpcnNukdDsdcXgyXxEXkRwtm</code>
-                      <Button variant="ghost" size="sm" className="h-6">Copy</Button>
-                    </div>
-                  </div>
-                  <div>
                     <p className="text-sm font-medium text-gray-500">Redirect URI</p>
-                    <code className="text-sm bg-gray-200 p-1 rounded">https://opaldesign.fr/dashboard/connections</code>
+                    <code className="text-sm bg-gray-200 p-1 rounded">
+                      {`${window.location.origin}/dashboard/connections`}
+                    </code>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Status</p>
@@ -166,15 +175,10 @@ const Connections = () => {
                     <code className="text-sm bg-gray-200 p-1 rounded">716459993916-dtfg52nflg5jdrna5vtg2h4ahupvt7bs.apps.googleusercontent.com</code>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Client Secret</p>
-                    <div className="flex items-center gap-2">
-                      <code className="text-sm bg-gray-200 p-1 rounded">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</code>
-                      <Button variant="ghost" size="sm" className="h-6">Copy</Button>
-                    </div>
-                  </div>
-                  <div>
                     <p className="text-sm font-medium text-gray-500">Redirect URI</p>
-                    <code className="text-sm bg-gray-200 p-1 rounded">https://opaldesign.fr/dashboard/connections</code>
+                    <code className="text-sm bg-gray-200 p-1 rounded">
+                      {`${window.location.origin}/dashboard/connections`}
+                    </code>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Status</p>

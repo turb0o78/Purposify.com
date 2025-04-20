@@ -9,7 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      platform_connections: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          platform: Database["public"]["Enums"]["platform_type"]
+          platform_avatar_url: string | null
+          platform_user_id: string | null
+          platform_username: string | null
+          refresh_token: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          platform: Database["public"]["Enums"]["platform_type"]
+          platform_avatar_url?: string | null
+          platform_user_id?: string | null
+          platform_username?: string | null
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          platform?: Database["public"]["Enums"]["platform_type"]
+          platform_avatar_url?: string | null
+          platform_user_id?: string | null
+          platform_username?: string | null
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +59,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      platform_type: "tiktok" | "youtube"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +174,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      platform_type: ["tiktok", "youtube"],
+    },
   },
 } as const

@@ -1,100 +1,13 @@
-
 import { useState } from "react";
+import { useUserContent } from "@/hooks/useUserContent";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ContentQueue from "@/components/ContentQueue";
 import { Content } from "@/types";
 import { Plus } from "lucide-react";
 
-// Mock data for the content items
-const mockContent: Content[] = [
-  {
-    id: "content-1",
-    sourcePlatform: "tiktok",
-    targetPlatform: "youtube",
-    sourceId: "source-1",
-    title: "How to Make Perfect Pancakes Every Time",
-    thumbnail: "https://picsum.photos/seed/pancakes/300/200",
-    duration: 45,
-    createdAt: new Date(),
-    status: "published",
-    publishedAt: new Date(),
-  },
-  {
-    id: "content-2",
-    sourcePlatform: "tiktok",
-    targetPlatform: "youtube",
-    sourceId: "source-2",
-    title: "5 Life Hacks You Didn't Know You Needed",
-    thumbnail: "https://picsum.photos/seed/lifehacks/300/200",
-    duration: 58,
-    createdAt: new Date(),
-    status: "processing",
-  },
-  {
-    id: "content-3",
-    sourcePlatform: "youtube",
-    targetPlatform: "tiktok",
-    sourceId: "source-3",
-    title: "Learn This Dance in 60 Seconds",
-    thumbnail: "https://picsum.photos/seed/dance/300/200",
-    duration: 62,
-    createdAt: new Date(),
-    status: "pending",
-    scheduledFor: new Date(Date.now() + 86400000), // Tomorrow
-  },
-  {
-    id: "content-4",
-    sourcePlatform: "tiktok",
-    targetPlatform: "youtube",
-    sourceId: "source-4",
-    title: "Why This Recipe Went Viral",
-    thumbnail: "https://picsum.photos/seed/viral/300/200",
-    duration: 32,
-    createdAt: new Date(),
-    status: "failed",
-    error: "Video format not supported",
-  },
-  {
-    id: "content-5",
-    sourcePlatform: "youtube",
-    targetPlatform: "tiktok",
-    sourceId: "source-5",
-    title: "DIY Home Decor Ideas Anyone Can Do",
-    thumbnail: "https://picsum.photos/seed/decor/300/200",
-    duration: 75,
-    createdAt: new Date(),
-    status: "pending",
-    scheduledFor: new Date(Date.now() + 172800000), // Day after tomorrow
-  },
-  {
-    id: "content-6",
-    sourcePlatform: "tiktok",
-    targetPlatform: "youtube",
-    sourceId: "source-6",
-    title: "Quick Workout For Busy People",
-    thumbnail: "https://picsum.photos/seed/workout/300/200",
-    duration: 42,
-    createdAt: new Date(),
-    status: "published",
-    publishedAt: new Date(Date.now() - 259200000), // 3 days ago
-  },
-  {
-    id: "content-7",
-    sourcePlatform: "youtube",
-    targetPlatform: "tiktok",
-    sourceId: "source-7",
-    title: "Top 3 Summer Fashion Trends",
-    thumbnail: "https://picsum.photos/seed/fashion/300/200",
-    duration: 53,
-    createdAt: new Date(),
-    status: "published",
-    publishedAt: new Date(Date.now() - 432000000), // 5 days ago
-  },
-];
-
 const ContentPage = () => {
-  const [content, setContent] = useState<Content[]>(mockContent);
+  const { data: content = [], isLoading } = useUserContent();
   
   // Filter content based on status
   const pendingContent = content.filter(item => item.status === "pending");
@@ -129,23 +42,23 @@ const ContentPage = () => {
         </TabsList>
         
         <TabsContent value="all">
-          <ContentQueue items={content} />
+          <ContentQueue items={content} isLoading={isLoading} />
         </TabsContent>
         
         <TabsContent value="pending">
-          <ContentQueue items={pendingContent} />
+          <ContentQueue items={pendingContent} isLoading={isLoading} />
         </TabsContent>
         
         <TabsContent value="processing">
-          <ContentQueue items={processingContent} />
+          <ContentQueue items={processingContent} isLoading={isLoading} />
         </TabsContent>
         
         <TabsContent value="published">
-          <ContentQueue items={publishedContent} />
+          <ContentQueue items={publishedContent} isLoading={isLoading} />
         </TabsContent>
         
         <TabsContent value="failed">
-          <ContentQueue items={failedContent} />
+          <ContentQueue items={failedContent} isLoading={isLoading} />
         </TabsContent>
       </Tabs>
     </div>

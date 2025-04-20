@@ -1,110 +1,30 @@
-
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useUserStats } from "@/hooks/useUserStats";
+import { useUserContent } from "@/hooks/useUserContent";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge"; // Add Badge import
-import { ContentStats, Platform } from "@/types";
+import { Badge } from "@/components/ui/badge";
 import { ArrowRight } from "lucide-react";
-
-// Sample data for the dashboard
-const dashboardData = {
-  today: {
-    totalRepurposed: 5,
-    pending: 2,
-    published: 3,
-    failed: 0,
-    averageViews: 1240,
-    averageLikes: 85,
-  },
-  week: {
-    totalRepurposed: 24,
-    pending: 5,
-    published: 18,
-    failed: 1,
-    averageViews: 1850,
-    averageLikes: 120,
-  },
-  month: {
-    totalRepurposed: 87,
-    pending: 12,
-    published: 72,
-    failed: 3,
-    averageViews: 2200,
-    averageLikes: 175,
-  },
-  total: {
-    totalRepurposed: 412,
-    pending: 12,
-    published: 396,
-    failed: 4,
-    averageViews: 3100,
-    averageLikes: 210,
-  },
-};
-
-const recentContent = [
-  {
-    id: "content-1",
-    title: "How I Built a Successful TikTok Channel in 3 Months",
-    sourcePlatform: "tiktok" as Platform,
-    targetPlatform: "youtube" as Platform,
-    status: "published",
-    createdAt: new Date(Date.now() - 7200000), // 2 hours ago
-    views: 2430,
-    likes: 187,
-  },
-  {
-    id: "content-2",
-    title: "5 JavaScript Tricks You Should Know",
-    sourcePlatform: "youtube" as Platform,
-    targetPlatform: "tiktok" as Platform,
-    status: "pending",
-    createdAt: new Date(Date.now() - 14400000), // 4 hours ago
-  },
-  {
-    id: "content-3",
-    title: "Day in the Life of a Developer",
-    sourcePlatform: "tiktok" as Platform,
-    targetPlatform: "youtube" as Platform,
-    status: "processing",
-    createdAt: new Date(Date.now() - 86400000), // 1 day ago
-  },
-  {
-    id: "content-4",
-    title: "Creating a Content Repurposing System",
-    sourcePlatform: "youtube" as Platform,
-    targetPlatform: "tiktok" as Platform,
-    status: "failed",
-    error: "Video dimensions not supported",
-    createdAt: new Date(Date.now() - 172800000), // 2 days ago
-  },
-];
-
-const StatCard = ({ title, value, description, className = "" }: { title: string; value: number | string; description?: string; className?: string }) => {
-  return (
-    <Card className={className}>
-      <CardContent className="p-6">
-        <div className="flex flex-col">
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <div className="mt-1">
-            <span className="text-3xl font-bold">{value}</span>
-            {description && (
-              <span className="text-sm text-muted-foreground ml-1">{description}</span>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-type TimeRange = "today" | "week" | "month" | "total";
+import { Link } from "react-router-dom";
 
 const Dashboard = () => {
-  const [timeRange, setTimeRange] = useState<TimeRange>("week");
-  const stats = dashboardData[timeRange];
-  
+  const { data: stats, isLoading: isLoadingStats } = useUserStats();
+  const { data: recentContent, isLoading: isLoadingContent } = useUserContent();
+
+  if (isLoadingStats || isLoadingContent) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -115,55 +35,26 @@ const Dashboard = () => {
           </p>
         </div>
         <div className="flex space-x-1 bg-muted rounded-lg p-1 mt-4 md:mt-0">
-          <Button 
-            variant={timeRange === "today" ? "default" : "ghost"} 
-            size="sm"
-            onClick={() => setTimeRange("today")}
-          >
-            Today
-          </Button>
-          <Button 
-            variant={timeRange === "week" ? "default" : "ghost"} 
-            size="sm"
-            onClick={() => setTimeRange("week")}
-          >
-            Week
-          </Button>
-          <Button 
-            variant={timeRange === "month" ? "default" : "ghost"} 
-            size="sm"
-            onClick={() => setTimeRange("month")}
-          >
-            Month
-          </Button>
-          <Button 
-            variant={timeRange === "total" ? "default" : "ghost"} 
-            size="sm"
-            onClick={() => setTimeRange("total")}
-          >
-            Total
-          </Button>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <StatCard 
           title="Total Content Repurposed"
-          value={stats.totalRepurposed}
-          description={timeRange === "today" ? "today" : timeRange === "week" ? "this week" : timeRange === "month" ? "this month" : "all time"}
+          value={stats?.totalRepurposed || 0}
         />
         <StatCard 
           title="Pending"
-          value={stats.pending}
+          value={stats?.pending || 0}
         />
         <StatCard 
           title="Published"
-          value={stats.published}
+          value={stats?.published || 0}
         />
         <StatCard 
           title="Failed"
-          value={stats.failed}
-          className={stats.failed > 0 ? "border-red-200" : ""}
+          value={stats?.failed || 0}
+          className={stats?.failed ? "border-red-200" : ""}
         />
       </div>
       
@@ -177,12 +68,12 @@ const Dashboard = () => {
             <div className="grid gap-4 grid-cols-2">
               <StatCard 
                 title="Avg. Views"
-                value={stats.averageViews?.toLocaleString() || "N/A"}
+                value={(stats?.averageViews || 0).toLocaleString()}
                 className="border-0 p-0"
               />
               <StatCard 
                 title="Avg. Likes"
-                value={stats.averageLikes?.toLocaleString() || "N/A"}
+                value={(stats?.averageLikes || 0).toLocaleString()}
                 className="border-0 p-0"
               />
             </div>
@@ -213,7 +104,7 @@ const Dashboard = () => {
         </div>
         
         <div className="space-y-4">
-          {recentContent.map((content) => (
+          {(recentContent || []).slice(0, 4).map((content) => (
             <Card key={content.id} className="overflow-hidden">
               <div className="flex flex-col md:flex-row md:items-center justify-between p-6 gap-4">
                 <div className="flex items-start gap-4">
@@ -266,7 +157,7 @@ const Dashboard = () => {
                       <span>To {content.targetPlatform}</span>
                       <span className="mx-2">•</span>
                       <span>
-                        {content.createdAt.toLocaleDateString()} at {content.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(content.createdAt).toLocaleDateString()} at {new Date(content.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                       
                       {content.status === "failed" && content.error && (
@@ -279,14 +170,14 @@ const Dashboard = () => {
                   </div>
                 </div>
                 
-                {content.status === "published" && content.views && content.likes && (
+                {content.status === "published" && (
                   <div className="flex gap-4">
                     <div className="text-center">
-                      <p className="text-2xl font-semibold">{content.views.toLocaleString()}</p>
+                      <p className="text-2xl font-semibold">{stats?.averageViews?.toLocaleString()}</p>
                       <p className="text-sm text-muted-foreground">Views</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-semibold">{content.likes.toLocaleString()}</p>
+                      <p className="text-2xl font-semibold">{stats?.averageLikes?.toLocaleString()}</p>
                       <p className="text-sm text-muted-foreground">Likes</p>
                     </div>
                   </div>
@@ -297,6 +188,21 @@ const Dashboard = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+const StatCard = ({ title, value, className = "" }: { title: string; value: number | string; className?: string }) => {
+  return (
+    <Card className={className}>
+      <CardContent className="p-6">
+        <div className="flex flex-col">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <div className="mt-1">
+            <span className="text-3xl font-bold">{value}</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

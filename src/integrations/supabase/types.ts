@@ -9,6 +9,51 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      content_statistics: {
+        Row: {
+          average_likes: number | null
+          average_views: number | null
+          created_at: string | null
+          id: string
+          source_platform: string
+          target_platform: string
+          total_failed: number | null
+          total_pending: number | null
+          total_published: number | null
+          total_repurposed: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          average_likes?: number | null
+          average_views?: number | null
+          created_at?: string | null
+          id?: string
+          source_platform: string
+          target_platform: string
+          total_failed?: number | null
+          total_pending?: number | null
+          total_published?: number | null
+          total_repurposed?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          average_likes?: number | null
+          average_views?: number | null
+          created_at?: string | null
+          id?: string
+          source_platform?: string
+          target_platform?: string
+          total_failed?: number | null
+          total_pending?: number | null
+          total_published?: number | null
+          total_repurposed?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       platform_connections: {
         Row: {
           access_token: string

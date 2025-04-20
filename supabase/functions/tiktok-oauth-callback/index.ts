@@ -96,7 +96,6 @@ serve(async (req) => {
 
     console.log('Successfully obtained access token');
 
-    // Store connection with just token info initially
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 

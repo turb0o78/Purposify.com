@@ -20,6 +20,7 @@ export type Database = {
           platform_user_id: string | null
           platform_username: string | null
           refresh_token: string | null
+          scopes: string | null
           updated_at: string | null
           user_id: string
         }
@@ -33,6 +34,7 @@ export type Database = {
           platform_user_id?: string | null
           platform_username?: string | null
           refresh_token?: string | null
+          scopes?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -46,6 +48,7 @@ export type Database = {
           platform_user_id?: string | null
           platform_username?: string | null
           refresh_token?: string | null
+          scopes?: string | null
           updated_at?: string | null
           user_id?: string
         }

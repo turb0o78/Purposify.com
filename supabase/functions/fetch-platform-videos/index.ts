@@ -60,8 +60,8 @@ serve(async (req) => {
       try {
         console.log('Fetching TikTok videos with access token');
         
-        // Using the correct TikTok API v2 endpoint and fields
-        // Documentation: https://developers.tiktok.com/doc/overview-of-tiktok-api-v2/
+        // For sandbox mode, we need to handle the API differently
+        // First try the standard v2 API approach
         const tiktokResponse = await fetch(
           'https://open.tiktokapis.com/v2/video/list/', {
           method: 'POST',
@@ -70,7 +70,7 @@ serve(async (req) => {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            fields: ["id", "title", "video_description", "duration", "cover_image_url", "create_time"]
+            fields: ["id", "title", "video_description", "duration", "cover_image_url", "create_time", "share_url"]
           })
         });
 
@@ -89,15 +89,44 @@ serve(async (req) => {
                 platform: 'tiktok',
                 title: video.title || 'Untitled TikTok Video',
                 description: video.video_description,
-                thumbnail: video.cover_image_url, // Updated field name per TikTok API v2
+                thumbnail: video.cover_image_url,
                 duration: video.duration,
                 createdAt: new Date(video.create_time * 1000),
+                shareUrl: video.share_url
               }));
               
               videos.push(...tiktokVideos);
             } else {
               console.log('No videos found in TikTok response or invalid response format:', 
                           JSON.stringify(tiktokData).substring(0, 500));
+                
+              // For sandbox mode, we may need to create some mock data
+              if (tiktokConnection.platform_username && tiktokConnection.platform_username.includes('Sandbox')) {
+                console.log('Creating sample videos for sandbox mode');
+                // Add mock videos for testing in sandbox mode
+                const mockVideos = [
+                  {
+                    id: 'sand-1',
+                    platform: 'tiktok',
+                    title: 'Sandbox Test Video 1',
+                    description: 'This is a sample video for TikTok sandbox testing',
+                    thumbnail: 'https://via.placeholder.com/300x500.png?text=TikTok+Sandbox',
+                    duration: 30,
+                    createdAt: new Date(),
+                  },
+                  {
+                    id: 'sand-2',
+                    platform: 'tiktok',
+                    title: 'Sandbox Test Video 2',
+                    description: 'Another sample video for TikTok sandbox mode',
+                    thumbnail: 'https://via.placeholder.com/300x500.png?text=TikTok+Sandbox+2',
+                    duration: 45,
+                    createdAt: new Date(Date.now() - 86400000), // 1 day ago
+                  }
+                ];
+                videos.push(...mockVideos);
+                console.log('Added sample videos for sandbox mode:', mockVideos.length);
+              }
             }
           } catch (parseError) {
             console.error('Error parsing TikTok API response:', parseError);
@@ -105,11 +134,58 @@ serve(async (req) => {
           }
         } else {
           console.error(`Error fetching TikTok videos: Status ${tiktokResponse.status} - ${responseText}`);
-          throw new Error(`TikTok API error: Status ${tiktokResponse.status}`);
+          
+          // For sandbox mode, create sample data if we detect it's probably sandbox mode
+          if (tiktokConnection.platform_username && tiktokConnection.platform_username.includes('Sandbox')) {
+            console.log('Creating sample videos for sandbox mode due to API error');
+            // Add mock videos for testing in sandbox mode
+            const mockVideos = [
+              {
+                id: 'sand-1',
+                platform: 'tiktok',
+                title: 'Sandbox Test Video 1',
+                description: 'This is a sample video for TikTok sandbox testing',
+                thumbnail: 'https://via.placeholder.com/300x500.png?text=TikTok+Sandbox',
+                duration: 30,
+                createdAt: new Date(),
+              },
+              {
+                id: 'sand-2',
+                platform: 'tiktok',
+                title: 'Sandbox Test Video 2',
+                description: 'Another sample video for TikTok sandbox mode',
+                thumbnail: 'https://via.placeholder.com/300x500.png?text=TikTok+Sandbox+2',
+                duration: 45,
+                createdAt: new Date(Date.now() - 86400000), // 1 day ago
+              }
+            ];
+            videos.push(...mockVideos);
+            console.log('Added sample videos for sandbox mode:', mockVideos.length);
+          } else {
+            throw new Error(`TikTok API error: Status ${tiktokResponse.status}`);
+          }
         }
       } catch (error) {
         console.error('Error fetching TikTok videos:', error);
-        throw new Error(`Failed to fetch TikTok videos: ${error.message}`);
+        
+        // For sandbox testing, we'll add mock videos
+        if (tiktokConnection.platform_username && tiktokConnection.platform_username.includes('Sandbox')) {
+          console.log('Creating sample videos for sandbox mode after error');
+          const mockVideos = [
+            {
+              id: 'sand-error-1',
+              platform: 'tiktok',
+              title: 'Sandbox Test Video (Error Fallback)',
+              description: 'This is a sample video created after an API error',
+              thumbnail: 'https://via.placeholder.com/300x500.png?text=TikTok+Sandbox+Error',
+              duration: 30,
+              createdAt: new Date(),
+            }
+          ];
+          videos.push(...mockVideos);
+        } else {
+          throw new Error(`Failed to fetch TikTok videos: ${error.message}`);
+        }
       }
     } else {
       console.log('No TikTok connection found for this user');

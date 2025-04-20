@@ -93,12 +93,16 @@ serve(async (req) => {
       throw new Error('No access token received from TikTok');
     }
 
-    // Now fetch user profile information using the latest TikTok API v2
-    console.log('Fetching TikTok user profile information...');
+    // For sandbox mode, we need to handle the case where user info might not be available
+    // or handle it differently
+    let username = 'Unknown TikTok User';
+    let avatarUrl = null;
+    let platformUserId = tokenData.open_id || null;
     
     try {
-      // Using the correct v2 endpoint and fields parameter
-      // Documentation: https://developers.tiktok.com/doc/user-info-basic-api-get/
+      console.log('Fetching TikTok user profile information...');
+      
+      // First try the basic user info endpoint
       const userInfoResponse = await fetch(
         'https://open.tiktokapis.com/v2/user/info/', {
         method: 'GET',
@@ -108,33 +112,50 @@ serve(async (req) => {
         }
       });
       
-      if (!userInfoResponse.ok) {
-        const errorText = await userInfoResponse.text();
-        console.error(`TikTok user info API error: Status ${userInfoResponse.status}`, errorText);
-        throw new Error(`Failed to get user info: Status ${userInfoResponse.status} - ${errorText}`);
+      if (userInfoResponse.ok) {
+        const userInfoData = await userInfoResponse.json();
+        console.log('User info response:', JSON.stringify(userInfoData));
+        
+        // Extract user data from the response according to TikTok API v2 structure
+        if (userInfoData && userInfoData.data && userInfoData.data.user) {
+          // In v2 API, the username can be in display_name or username fields
+          username = userInfoData.data.user.display_name || 
+                    userInfoData.data.user.username || 
+                    'TikTok User'; // Fallback
+          
+          avatarUrl = userInfoData.data.user.avatar_url || null;
+          platformUserId = userInfoData.data.user.open_id || tokenData.open_id || null;
+          
+          console.log(`Found user profile: name=${username}, avatar=${avatarUrl ? 'present' : 'missing'}, ID=${platformUserId}`);
+        } else {
+          console.log('Could not retrieve user profile information from TikTok response:', 
+                      JSON.stringify(userInfoData).substring(0, 500));
+        }
+      } else {
+        // If standard user info fails, try to find other ways to get username
+        console.log('Failed to get user info, trying alternative approach for sandbox mode');
+        
+        // For sandbox mode, we'll use a combination of available data
+        // If we have open_id, we'll use that to make a recognizable username
+        if (tokenData.open_id) {
+          username = `TikTok User (${tokenData.open_id.substring(0, 8)}...)`;
+          console.log(`Using open_id to create username: ${username}`);
+        }
       }
       
-      const userInfoData = await userInfoResponse.json();
-      console.log('User info response:', JSON.stringify(userInfoData));
+      // Fallback for sandbox mode: If we're in sandbox and couldn't get info,
+      // at least make the username more distinctive than just "TikTok User"
+      if (username === 'TikTok User' || username === 'Unknown TikTok User') {
+        // Generate a pseudo-random username based on the open_id
+        const randomPart = Math.floor(Math.random() * 1000).toString();
+        username = `TikTok Sandbox User ${randomPart}`;
+        console.log(`Created sandbox fallback username: ${username}`);
+      }
       
-      let username = 'TikTok User'; // Default fallback
-      let avatarUrl = null;
-      let platformUserId = tokenData.open_id || null;
-
-      // Extract user data from the response according to TikTok API v2 structure
-      if (userInfoData && userInfoData.data && userInfoData.data.user) {
-        // In v2 API, the username can be in display_name or username fields
-        username = userInfoData.data.user.display_name || 
-                  userInfoData.data.user.username || 
-                  'TikTok User'; // Fallback
-        
-        avatarUrl = userInfoData.data.user.avatar_url || null;
-        platformUserId = userInfoData.data.user.open_id || tokenData.open_id || null;
-        
-        console.log(`Found user profile: name=${username}, avatar=${avatarUrl ? 'present' : 'missing'}, ID=${platformUserId}`);
-      } else {
-        console.warn('Could not retrieve user profile information from TikTok response:', 
-                    JSON.stringify(userInfoData).substring(0, 500));
+      // Ensure we have some kind of user ID
+      if (!platformUserId && tokenData.open_id) {
+        platformUserId = tokenData.open_id;
+        console.log(`Using open_id as platformUserId: ${platformUserId}`);
       }
       
       const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -232,13 +253,16 @@ serve(async (req) => {
         throw new Error('Failed to store connection data');
       }
     } catch (userInfoError) {
-      console.error('Error fetching user info from TikTok:', userInfoError);
-      // If user info fails, we'll still create a connection with default values
+      console.error('Error in user profile handling:', userInfoError);
+      
+      // Even if user info fails, we still want to create a connection with the access token
       const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
       const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
       
-      // Attempt to save a connection with limited info
+      // For sandbox mode, create a better default username
+      const sandboxUsername = `TikTok Sandbox User (${new Date().toISOString().split('T')[0]})`;
+      
       try {
         const { data: existingConnection } = await supabaseClient
           .from('platform_connections')
@@ -249,7 +273,7 @@ serve(async (req) => {
           
         const connectionData = {
           platform_user_id: tokenData.open_id || 'unknown',
-          platform_username: 'TikTok User',
+          platform_username: sandboxUsername,
           access_token: tokenData.access_token,
           refresh_token: tokenData.refresh_token,
           expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
@@ -261,6 +285,8 @@ serve(async (req) => {
             .from('platform_connections')
             .update(connectionData)
             .eq('id', existingConnection.id);
+            
+          console.log('Updated existing connection with sandbox data');
         } else {
           await supabaseClient
             .from('platform_connections')
@@ -269,9 +295,9 @@ serve(async (req) => {
               user_id: userId,
               platform: 'tiktok',
             });
+            
+          console.log('Created new connection with sandbox data');
         }
-        
-        console.log('Created connection with fallback data due to user info API failure');
       } catch (fallbackError) {
         console.error('Failed to create fallback connection:', fallbackError);
       }

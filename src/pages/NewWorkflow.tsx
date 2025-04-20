@@ -58,9 +58,26 @@ export default function NewWorkflow() {
     try {
       setIsLoading(true);
       
+      // Check if the platform is supported in the database
+      const isPlatformSupported = (platform: Platform): boolean => {
+        return platform === "tiktok" || platform === "youtube";
+      };
+      
+      // Validate platforms before submission
+      if (!isPlatformSupported(workflowData.sourcePlatform) || !isPlatformSupported(workflowData.targetPlatform)) {
+        toast({
+          title: "Platform Not Supported",
+          description: "Currently, only TikTok and YouTube workflows are supported. Instagram and Facebook integration is coming soon.",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Now insert with the validated platforms
       const { data, error } = await supabase
         .from('workflows')
-        .insert([{
+        .insert({
           name: workflowData.name,
           workflow_type: workflowType,
           user_id: user?.id,
@@ -69,7 +86,7 @@ export default function NewWorkflow() {
           source_connection_id: workflowData.sourceAccount,
           target_connection_id: workflowData.targetAccount,
           is_active: true
-        }])
+        })
         .select()
         .single();
 
@@ -93,7 +110,6 @@ export default function NewWorkflow() {
     }
   };
 
-  // Fixed the useState call to useEffect, which was causing the error
   useEffect(() => {
     if (user) {
       fetchConnections();

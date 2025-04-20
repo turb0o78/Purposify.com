@@ -18,8 +18,17 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
 
-    const { data: { session }, error: authError } = await supabaseClient.auth.getSession()
-    if (authError || !session) {
+    // Get the user session
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      throw new Error('Missing Authorization header')
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
+    
+    if (authError || !user) {
+      console.error('Authentication error:', authError)
       throw new Error('Not authenticated')
     }
 
@@ -31,7 +40,7 @@ serve(async (req) => {
       redirect_uri: redirectUri,
       response_type: 'code',
       scope: 'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload',
-      state: session.user.id,
+      state: user.id,
       access_type: 'offline',
       prompt: 'consent',
     })
@@ -41,6 +50,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
+    console.error('YouTube OAuth error:', error.message)
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

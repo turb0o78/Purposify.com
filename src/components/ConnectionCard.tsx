@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,9 +8,10 @@ interface ConnectionCardProps {
   connection: Partial<Connection>;
   onConnect: (platform: Connection['platform']) => void;
   isConnecting: boolean;
+  disabled?: boolean;
 }
 
-const ConnectionCard = ({ connection, onConnect, isConnecting }: ConnectionCardProps) => {
+const ConnectionCard = ({ connection, onConnect, isConnecting, disabled = false }: ConnectionCardProps) => {
   const [isHovering, setIsHovering] = useState(false);
   
   const getPlatformLogo = (platform: Connection['platform']) => {
@@ -113,9 +113,10 @@ const ConnectionCard = ({ connection, onConnect, isConnecting }: ConnectionCardP
           <Button 
             className={`w-full ${connection.platform === "tiktok" ? "platform-tiktok" : "platform-youtube"}`}
             onClick={() => onConnect(connection.platform)}
-            disabled={isConnecting}
+            disabled={isConnecting || disabled}
           >
             {isConnecting ? "Connecting..." : `Connect to ${connection.platform === "tiktok" ? "TikTok" : "YouTube"}`}
+            {disabled && " (Login required)"}
           </Button>
         )}
       </CardFooter>

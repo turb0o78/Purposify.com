@@ -17,11 +17,20 @@ serve(async (req) => {
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
     )
 
-    const { data: { session }, error: authError } = await supabaseClient.auth.getSession()
-    if (authError || !session) {
+    // Get the user session
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      throw new Error('Missing Authorization header')
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
+    
+    if (authError || !user) {
+      console.error('Authentication error:', authError)
       throw new Error('Not authenticated')
     }
 
@@ -33,7 +42,7 @@ serve(async (req) => {
       redirect_uri: redirectUri,
       response_type: 'code',
       scope: 'user.info.basic,video.list',
-      state: session.user.id,
+      state: user.id,
     })
 
     return new Response(
@@ -41,6 +50,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
+    console.error('TikTok OAuth error:', error.message)
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -8,6 +8,8 @@ import { toast } from "@/components/ui/use-toast";
 import { Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams } from "react-router-dom";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 const emptyConnections: Partial<Connection>[] = [
   {
@@ -25,6 +27,35 @@ const Connections = () => {
   const [connecting, setConnecting] = useState<boolean>(false);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+
+  // Check for current user session
+  useEffect(() => {
+    const checkUser = async () => {
+      setAuthLoading(true);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error("Auth error:", error);
+        }
+        setUser(session?.user || null);
+      } catch (error) {
+        console.error("Session check error:", error);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkUser();
+    
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Check URL parameters for OAuth callback results
   useEffect(() => {
@@ -53,6 +84,8 @@ const Connections = () => {
   // Fetch existing connections
   useEffect(() => {
     const fetchConnections = async () => {
+      if (!user) return;
+
       const { data: existingConnections, error } = await supabase
         .from('platform_connections')
         .select('*');
@@ -72,10 +105,21 @@ const Connections = () => {
       })));
     };
 
-    fetchConnections();
-  }, []);
+    if (user) {
+      fetchConnections();
+    }
+  }, [user]);
 
   const handleConnect = async (platform: Connection['platform']) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You need to be logged in to connect your accounts",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setConnecting(true);
     setConnectingPlatform(platform);
 
@@ -84,7 +128,10 @@ const Connections = () => {
         method: 'POST',
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error(`Error initiating ${platform} OAuth:`, error);
+        throw new Error(`Failed to connect to ${platform}`);
+      }
 
       // Redirect to OAuth URL
       window.location.href = data.url;
@@ -109,6 +156,14 @@ const Connections = () => {
     return emptyConnections.find(c => c.platform === platform) || { platform, status: "disconnected" };
   };
 
+  if (authLoading) {
+    return (
+      <div className="container mx-auto py-6">
+        <p className="text-center">Loading authentication status...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-6">
       <div className="mb-6">
@@ -118,17 +173,29 @@ const Connections = () => {
         </p>
       </div>
       
+      {!user && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Authentication Required</AlertTitle>
+          <AlertDescription>
+            You need to be logged in to connect your accounts. Please sign in first.
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <ConnectionCard 
           connection={getConnectionByPlatform("tiktok")}
           onConnect={handleConnect}
           isConnecting={connecting && connectingPlatform === "tiktok"}
+          disabled={!user}
         />
         
         <ConnectionCard 
           connection={getConnectionByPlatform("youtube")}
           onConnect={handleConnect}
           isConnecting={connecting && connectingPlatform === "youtube"}
+          disabled={!user}
         />
       </div>
       
@@ -153,7 +220,7 @@ const Connections = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Redirect URI</p>
                     <code className="text-sm bg-gray-200 p-1 rounded">
-                      {`${window.location.origin}/dashboard/connections`}
+                      {`${window.location.origin}/connections`}
                     </code>
                   </div>
                   <div>
@@ -177,7 +244,7 @@ const Connections = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Redirect URI</p>
                     <code className="text-sm bg-gray-200 p-1 rounded">
-                      {`${window.location.origin}/dashboard/connections`}
+                      {`${window.location.origin}/connections`}
                     </code>
                   </div>
                   <div>

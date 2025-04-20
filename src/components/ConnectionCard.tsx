@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Connection } from "@/types";
-import { supabase } from "@/integrations/supabase/client";
+import { InstagramIcon, FacebookIcon, TiktokIcon, YoutubeIcon } from "@/components/icons";
 import { toast } from "@/components/ui/use-toast";
 
 interface ConnectionCardProps {
@@ -25,26 +24,16 @@ const ConnectionCard = ({
   const [isHovering, setIsHovering] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   
-  const getPlatformLogo = (platform: Connection['platform']) => {
+  const getPlatformIcon = (platform: Connection['platform']) => {
     switch (platform) {
       case "tiktok":
-        return (
-          <svg viewBox="0 0 24 24" className="w-6 h-6">
-            <path
-              fill="currentColor"
-              d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"
-            />
-          </svg>
-        );
+        return <TiktokIcon />;
       case "youtube":
-        return (
-          <svg viewBox="0 0 24 24" className="w-6 h-6">
-            <path
-              fill="currentColor"
-              d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .5 6.186C0 8.07 0 12 0 12s0 3.93.5 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"
-            />
-          </svg>
-        );
+        return <YoutubeIcon />;
+      case "instagram":
+        return <InstagramIcon />;
+      case "facebook":
+        return <FacebookIcon />;
       default:
         return null;
     }
@@ -56,8 +45,27 @@ const ConnectionCard = ({
         return "platform-tiktok";
       case "youtube":
         return "platform-youtube";
+      case "instagram":
+        return "bg-gradient-to-r from-purple-500 to-pink-500";
+      case "facebook":
+        return "bg-blue-600";
       default:
         return "bg-gray-200 text-gray-800";
+    }
+  };
+
+  const getPlatformName = (platform: Connection['platform']) => {
+    switch (platform) {
+      case "tiktok":
+        return "TikTok";
+      case "youtube":
+        return "YouTube";
+      case "instagram":
+        return "Instagram";
+      case "facebook":
+        return "Facebook";
+      default:
+        return platform;
     }
   };
 
@@ -101,14 +109,14 @@ const ConnectionCard = ({
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
             <div className={`p-2 rounded-lg ${getPlatformClassName(connection.platform)}`}>
-              {getPlatformLogo(connection.platform)}
+              {getPlatformIcon(connection.platform)}
             </div>
             <div>
-              <CardTitle className="text-xl">{connection.platform === "tiktok" ? "TikTok" : "YouTube"}</CardTitle>
+              <CardTitle className="text-xl">{getPlatformName(connection.platform)}</CardTitle>
               <CardDescription>
                 {connection.status === "connected" ? 
                   `Connected as ${connection.name || "User"}` : 
-                  `Connect your ${connection.platform === "tiktok" ? "TikTok" : "YouTube"} account`}
+                  `Connect your ${getPlatformName(connection.platform)} account`}
               </CardDescription>
             </div>
           </div>
@@ -145,11 +153,11 @@ const ConnectionCard = ({
           </div>
         ) : (
           <Button 
-            className={`w-full ${connection.platform === "tiktok" ? "platform-tiktok" : "platform-youtube"}`}
+            className={`w-full ${getPlatformClassName(connection.platform)}`}
             onClick={() => onConnect(connection.platform)}
             disabled={isConnecting || disabled}
           >
-            {isConnecting ? "Connecting..." : `Connect to ${connection.platform === "tiktok" ? "TikTok" : "YouTube"}`}
+            {isConnecting ? "Connecting..." : `Connect to ${getPlatformName(connection.platform)}`}
             {disabled && " (Login required)"}
           </Button>
         )}

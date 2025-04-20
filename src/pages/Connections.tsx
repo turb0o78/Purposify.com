@@ -20,6 +20,14 @@ const emptyConnections: Partial<Connection>[] = [
     platform: "youtube",
     status: "disconnected",
   },
+  {
+    platform: "instagram",
+    status: "disconnected",
+  },
+  {
+    platform: "facebook",
+    status: "disconnected",
+  },
 ];
 
 const Connections = () => {

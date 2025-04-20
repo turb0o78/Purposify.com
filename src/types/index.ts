@@ -1,5 +1,4 @@
-
-export type Platform = "tiktok" | "youtube";
+export type Platform = "tiktok" | "youtube" | "instagram" | "facebook";
 
 export type ConnectionStatus = "connected" | "disconnected" | "pending";
 
@@ -58,7 +57,6 @@ export interface ContentStats {
   averageLikes?: number;
 }
 
-// Modify the DashboardStats interface to match our actual implementation
 export interface DashboardStats extends ContentStats {
   // The structure can remain simple since we're currently using the ContentStats directly
   // If needed later, we can expand this with the time-based structure:

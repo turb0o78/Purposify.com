@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const TIKTOK_AUTH_URL = 'https://www.tiktok.com/auth/authorize/'
+const TIKTOK_AUTH_URL = 'https://www.tiktok.com/v2/auth/authorize/'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -35,18 +35,19 @@ serve(async (req) => {
     }
 
     const clientKey = Deno.env.get('TIKTOK_CLIENT_KEY')
-    // Use fixed redirect URI without dynamic state parameter in the URI itself
+    
+    // Per TikTok docs, the redirect URI must be absolute and registered in the developer portal
     const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tiktok-oauth-callback`
     
     console.log('Initiating TikTok OAuth with redirect URI:', redirectUri)
     
-    // State parameter is included separately in the params, not in the URI
+    // Format params exactly as required by TikTok documentation
     const params = new URLSearchParams({
       client_key: clientKey,
-      redirect_uri: redirectUri,
-      response_type: 'code',
+      response_type: 'code',  // must always be 'code'
       scope: 'user.info.basic,video.list',
-      state: user.id,
+      redirect_uri: redirectUri,
+      state: user.id,  // Using user.id as state to identify the user in callback
     })
 
     return new Response(

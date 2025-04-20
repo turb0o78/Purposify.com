@@ -16,8 +16,20 @@ serve(async (req) => {
     const url = new URL(req.url)
     const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
+    const error = url.searchParams.get('error')
+    const errorDescription = url.searchParams.get('error_description')
     
-    console.log('TikTok callback received with code and state:', { codeExists: !!code, stateExists: !!state })
+    console.log('TikTok callback received with parameters:', { 
+      codeExists: !!code, 
+      stateExists: !!state,
+      error,
+      errorDescription 
+    })
+    
+    // Check for TikTok-returned errors first
+    if (error) {
+      throw new Error(`TikTok authorization error: ${error} - ${errorDescription || 'No description provided'}`)
+    }
     
     if (!code) {
       throw new Error('Missing authorization code')
@@ -33,7 +45,7 @@ serve(async (req) => {
 
     console.log('Exchanging code for access token with redirect URI:', redirectUri)
 
-    // Exchange code for access token
+    // Exchange code for access token (using v2 API)
     const tokenResponse = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
       method: 'POST',
       headers: {
@@ -58,10 +70,11 @@ serve(async (req) => {
 
     console.log('Successfully obtained access token')
 
-    // Get user info
+    // Get user info using the new access token
     const userResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
+        'Content-Type': 'application/json',
       },
     })
 
@@ -73,7 +86,7 @@ serve(async (req) => {
       throw new Error('Failed to get user info')
     }
 
-    console.log('Successfully obtained user info')
+    console.log('Successfully obtained user info', userData)
 
     // Store connection in database
     const supabaseClient = createClient(
@@ -82,12 +95,12 @@ serve(async (req) => {
     )
 
     // Extract user data from the TikTok response (V2 API structure)
-    const userInfo = userData.data.user || {};
+    const userInfo = userData.data?.user || {};
     
     await supabaseClient.from('platform_connections').upsert({
       user_id: state,
       platform: 'tiktok',
-      platform_user_id: userInfo.open_id || userInfo.user_id || 'unknown',
+      platform_user_id: userInfo.open_id || 'unknown',
       platform_username: userInfo.display_name || userInfo.nickname || 'TikTok User',
       platform_avatar_url: userInfo.avatar_url || userInfo.avatar_large_url || null,
       access_token: tokenData.access_token,

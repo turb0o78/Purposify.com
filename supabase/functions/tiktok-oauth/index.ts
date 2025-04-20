@@ -57,6 +57,7 @@ serve(async (req) => {
     params.append('scope', 'user.info.basic,video.list')
     params.append('redirect_uri', redirectUri)
     params.append('state', state)
+    params.append('disable_auto_auth', '1') // Force the authorization screen to show
     
     const authUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`
     console.log('Authorization URL:', authUrl)

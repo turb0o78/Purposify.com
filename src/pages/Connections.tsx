@@ -218,6 +218,11 @@ const Connections = () => {
     );
   }
 
+  // Define hardcoded redirect URIs that don't rely on Deno variables
+  const supabaseUrl = "https://tarjnmziaghkzosivsqk.supabase.co";
+  const tiktokRedirectUri = `${supabaseUrl}/functions/v1/tiktok-oauth-callback`;
+  const youtubeRedirectUri = `${supabaseUrl}/functions/v1/youtube-oauth-callback`;
+
   return (
     <div className="container mx-auto py-6">
       <div className="mb-6">
@@ -276,7 +281,7 @@ const Connections = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Redirect URI</p>
                     <code className="text-sm bg-gray-200 p-1 rounded">
-                      {`${Deno.env.get('SUPABASE_URL')}/functions/v1/tiktok-oauth-callback`}
+                      {tiktokRedirectUri}
                     </code>
                   </div>
                   <div>
@@ -300,7 +305,7 @@ const Connections = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Redirect URI</p>
                     <code className="text-sm bg-gray-200 p-1 rounded">
-                      {`${Deno.env.get('SUPABASE_URL')}/functions/v1/youtube-oauth-callback`}
+                      {youtubeRedirectUri}
                     </code>
                   </div>
                   <div>

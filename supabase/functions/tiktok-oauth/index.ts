@@ -37,6 +37,7 @@ serve(async (req) => {
     const clientKey = Deno.env.get('TIKTOK_CLIENT_KEY')
     const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tiktok-oauth-callback`
     
+    // Ensure scopes are properly formatted and include both required permissions
     const params = new URLSearchParams({
       client_key: clientKey,
       redirect_uri: redirectUri,
@@ -44,6 +45,8 @@ serve(async (req) => {
       scope: 'user.info.basic,video.list',
       state: user.id,
     })
+
+    console.log('Initiating TikTok OAuth with redirect URI:', redirectUri)
 
     return new Response(
       JSON.stringify({ url: `${TIKTOK_AUTH_URL}?${params.toString()}` }),

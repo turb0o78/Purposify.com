@@ -86,34 +86,23 @@ const Connections = () => {
     const fetchConnections = async () => {
       if (!user) return;
 
-      try {
-        const { data: existingConnections, error } = await supabase
-          .from('platform_connections')
-          .select('*');
+      const { data: existingConnections, error } = await supabase
+        .from('platform_connections')
+        .select('*');
 
-        if (error) {
-          console.error('Error fetching connections:', error);
-          return;
-        }
-
-        console.log('Fetched connections:', existingConnections);
-
-        if (existingConnections && existingConnections.length > 0) {
-          setConnections(existingConnections.map(conn => ({
-            id: conn.id,
-            platform: conn.platform,
-            name: conn.platform_username || `${conn.platform} Account`,
-            status: "connected" as const,
-            avatar: conn.platform_avatar_url,
-            connected_at: conn.created_at ? new Date(conn.created_at) : undefined,
-            expires_at: conn.expires_at ? new Date(conn.expires_at) : undefined,
-          })));
-        } else {
-          console.log('No connections found');
-        }
-      } catch (err) {
-        console.error('Error in fetchConnections:', err);
+      if (error) {
+        console.error('Error fetching connections:', error);
+        return;
       }
+
+      setConnections(existingConnections.map(conn => ({
+        id: conn.id,
+        platform: conn.platform,
+        name: conn.platform_username || `${conn.platform} Account`,
+        status: "connected" as const,
+        avatar: conn.platform_avatar_url,
+        connected_at: new Date(conn.created_at),
+      })));
     };
 
     if (user) {

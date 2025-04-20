@@ -97,27 +97,39 @@ serve(async (req) => {
     console.log('Successfully obtained access token');
 
     // Store connection with just token info initially
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+    console.log('Creating Supabase client with URL:', supabaseUrl);
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Supabase credentials not configured');
+    }
 
     // Check if connection already exists for this user and platform
-    const { data: existingConnection } = await supabaseClient
+    const { data: existingConnection, error: fetchError } = await supabaseClient
       .from('platform_connections')
       .select('id')
       .eq('user_id', userId)
       .eq('platform', 'tiktok')
       .maybeSingle();
       
+    if (fetchError) {
+      console.error('Error checking for existing connection:', fetchError);
+      throw new Error('Failed to check for existing connection');
+    }
+
     // We'll store basic profile info that we got from the token response
-    const platformUserId = tokenData.open_id || 'unknown';
+    const platformUserId = tokenData.open_id || tokenData.user_id || 'unknown';
+    console.log('Platform user ID:', platformUserId);
     
     try {
       // Try to get user details - if this fails, we'll still create the connection
       // with the basic info we have from the token response
       if (existingConnection) {
-        await supabaseClient
+        console.log('Updating existing connection:', existingConnection.id);
+        const { error: updateError } = await supabaseClient
           .from('platform_connections')
           .update({
             platform_user_id: platformUserId,
@@ -130,18 +142,31 @@ serve(async (req) => {
           })
           .eq('id', existingConnection.id);
         
+        if (updateError) {
+          console.error('Error updating connection:', updateError);
+          throw new Error('Failed to update connection data');
+        }
+        
         console.log('Successfully updated existing connection in database');
       } else {
-        await supabaseClient.from('platform_connections').insert({
-          user_id: userId,
-          platform: 'tiktok',
-          platform_user_id: platformUserId,
-          platform_username: 'TikTok User',
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token,
-          expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
-          scopes: tokenData.scope || 'user.info.basic,video.list'
-        });
+        console.log('Creating new connection for user:', userId);
+        const { error: insertError } = await supabaseClient
+          .from('platform_connections')
+          .insert({
+            user_id: userId,
+            platform: 'tiktok',
+            platform_user_id: platformUserId,
+            platform_username: 'TikTok User',
+            access_token: tokenData.access_token,
+            refresh_token: tokenData.refresh_token,
+            expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+            scopes: tokenData.scope || 'user.info.basic,video.list'
+          });
+        
+        if (insertError) {
+          console.error('Error creating connection:', insertError);
+          throw new Error('Failed to create connection data');
+        }
         
         console.log('Successfully created new connection in database');
       }

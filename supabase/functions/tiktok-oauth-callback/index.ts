@@ -86,15 +86,22 @@ serve(async (req) => {
     console.log('Successfully obtained access token')
 
     // Get user info using the new access token
+    // IMPORTANT: The fields parameter is required by TikTok API
     const userResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
         'Content-Type': 'application/json',
       },
+      method: 'POST', // Changed to POST as per TikTok API v2 requirements
+      body: JSON.stringify({
+        fields: ['open_id', 'union_id', 'avatar_url', 'avatar_url_100', 'avatar_url_200', 
+                'avatar_large_url', 'display_name', 'bio_description', 'profile_deep_link', 'is_verified']
+      }),
     })
 
     const userData = await userResponse.json()
     console.log('User info response status:', userResponse.status)
+    console.log('User info response body:', userData)
     
     if (!userResponse.ok) {
       console.error('Failed to get user info:', userData)

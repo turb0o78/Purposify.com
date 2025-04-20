@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +19,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Step, StepCircle, StepDescription, StepSeparator, StepTitle } from "@/components/ui/step";
 import { Switch } from "@/components/ui/switch";
 import { Connection, Platform } from "@/types";
 import { ArrowRight, Plus, Trash2 } from "lucide-react";
@@ -89,7 +87,6 @@ const WorkflowBuilder = ({ connections, onSave, isLoading = false }: WorkflowBui
     if (activeStep < 3) {
       setActiveStep(activeStep + 1);
     } else {
-      // Save workflow
       const workflow = {
         name: workflowName,
         sourcePlatform,
@@ -173,7 +170,6 @@ const WorkflowBuilder = ({ connections, onSave, isLoading = false }: WorkflowBui
                     value={sourcePlatform} 
                     onValueChange={(value) => {
                       setSourcePlatform(value as Platform);
-                      // If target is same as new source, reset target
                       if (targetPlatform === value) {
                         setTargetPlatform("");
                       }

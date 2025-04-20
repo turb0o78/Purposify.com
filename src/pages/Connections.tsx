@@ -1,13 +1,13 @@
 
 import { useState, useEffect } from "react";
-import { Connection } from "@/types";
+import { Connection, Platform } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import ConnectionCard from "@/components/ConnectionCard";
 import { toast } from "@/components/ui/use-toast";
 import { Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
@@ -29,6 +29,7 @@ const Connections = () => {
   const [searchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const navigate = useNavigate();
 
   // Check for current user session
   useEffect(() => {
@@ -72,41 +73,56 @@ const Connections = () => {
           </div>
         ),
       });
+      // Clear URL params after displaying toast
+      navigate("/connections", { replace: true });
     } else if (error) {
       toast({
         title: "Connection failed",
         description: decodeURIComponent(error),
         variant: "destructive",
       });
+      // Clear URL params after displaying toast
+      navigate("/connections", { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, navigate]);
 
   // Fetch existing connections
   useEffect(() => {
     const fetchConnections = async () => {
       if (!user) return;
 
-      const { data: existingConnections, error } = await supabase
-        .from('platform_connections')
-        .select('*');
+      try {
+        const { data: existingConnections, error } = await supabase
+          .from('platform_connections')
+          .select('*')
+          .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error fetching connections:', error);
-        return;
+        if (error) {
+          console.error('Error fetching connections:', error);
+          return;
+        }
+
+        if (existingConnections && existingConnections.length > 0) {
+          setConnections(existingConnections.map(conn => ({
+            id: conn.id,
+            platform: conn.platform,
+            name: conn.platform_username || `${conn.platform} Account`,
+            status: "connected" as const,
+            avatar: conn.platform_avatar_url,
+            connected_at: new Date(conn.created_at),
+          })));
+        } else {
+          setConnections([]);
+        }
+      } catch (err) {
+        console.error("Error fetching connections:", err);
       }
-
-      setConnections(existingConnections.map(conn => ({
-        id: conn.id,
-        platform: conn.platform,
-        name: conn.platform_username || `${conn.platform} Account`,
-        status: "connected" as const,
-        avatar: conn.platform_avatar_url,
-        connected_at: new Date(conn.created_at),
-      })));
     };
 
     if (user) {
       fetchConnections();
+    } else {
+      setConnections([]);
     }
   }, [user]);
 
@@ -133,8 +149,12 @@ const Connections = () => {
         throw new Error(`Failed to connect to ${platform}`);
       }
 
-      // Redirect to OAuth URL
-      window.location.href = data.url;
+      if (data && data.url) {
+        // Redirect to OAuth URL
+        window.location.href = data.url;
+      } else {
+        throw new Error(`Invalid response from ${platform} OAuth service`);
+      }
     } catch (error) {
       console.error(`Error initiating ${platform} OAuth:`, error);
       toast({
@@ -144,6 +164,40 @@ const Connections = () => {
       });
       setConnecting(false);
       setConnectingPlatform(null);
+    }
+  };
+
+  const handleDisconnect = async (connectionId: string, platform: Platform) => {
+    if (!user) return;
+    
+    try {
+      // Delete the connection from Supabase
+      const { error } = await supabase
+        .from('platform_connections')
+        .delete()
+        .eq('id', connectionId)
+        .eq('user_id', user.id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Update local state - remove the disconnected platform
+      setConnections(prev => prev.filter(conn => conn.id !== connectionId));
+      
+      // Show success toast
+      toast({
+        title: "Disconnected successfully",
+        description: `Your ${platform} account has been disconnected.`,
+      });
+    } catch (error) {
+      console.error("Error disconnecting account:", error);
+      toast({
+        title: "Disconnection failed",
+        description: `Failed to disconnect your ${platform} account. Please try again.`,
+        variant: "destructive",
+      });
+      throw error;
     }
   };
 
@@ -189,6 +243,7 @@ const Connections = () => {
           onConnect={handleConnect}
           isConnecting={connecting && connectingPlatform === "tiktok"}
           disabled={!user}
+          onDisconnect={handleDisconnect}
         />
         
         <ConnectionCard 
@@ -196,6 +251,7 @@ const Connections = () => {
           onConnect={handleConnect}
           isConnecting={connecting && connectingPlatform === "youtube"}
           disabled={!user}
+          onDisconnect={handleDisconnect}
         />
       </div>
       
@@ -220,7 +276,7 @@ const Connections = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Redirect URI</p>
                     <code className="text-sm bg-gray-200 p-1 rounded">
-                      {`${window.location.origin}/connections`}
+                      {`${Deno.env.get('SUPABASE_URL')}/functions/v1/tiktok-oauth-callback`}
                     </code>
                   </div>
                   <div>
@@ -244,7 +300,7 @@ const Connections = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Redirect URI</p>
                     <code className="text-sm bg-gray-200 p-1 rounded">
-                      {`${window.location.origin}/connections`}
+                      {`${Deno.env.get('SUPABASE_URL')}/functions/v1/youtube-oauth-callback`}
                     </code>
                   </div>
                   <div>

@@ -140,16 +140,40 @@ serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      await supabaseClient.from('platform_connections').upsert({
-        user_id: userId,
-        platform: 'tiktok',
-        platform_user_id: userInfo.open_id || 'unknown',
-        platform_username: userInfo.display_name || 'TikTok User',
-        platform_avatar_url: userInfo.avatar_url || userInfo.avatar_large_url || null,
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
-      });
+      // Check if connection already exists for this user and platform
+      const { data: existingConnection } = await supabaseClient
+        .from('platform_connections')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('platform', 'tiktok')
+        .maybeSingle();
+        
+      // Update or insert the connection
+      if (existingConnection) {
+        await supabaseClient
+          .from('platform_connections')
+          .update({
+            platform_user_id: userInfo.open_id || 'unknown',
+            platform_username: userInfo.display_name || 'TikTok User',
+            platform_avatar_url: userInfo.avatar_url || userInfo.avatar_large_url || null,
+            access_token: tokenData.access_token,
+            refresh_token: tokenData.refresh_token,
+            expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingConnection.id);
+      } else {
+        await supabaseClient.from('platform_connections').insert({
+          user_id: userId,
+          platform: 'tiktok',
+          platform_user_id: userInfo.open_id || 'unknown',
+          platform_username: userInfo.display_name || 'TikTok User',
+          platform_avatar_url: userInfo.avatar_url || userInfo.avatar_large_url || null,
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token,
+          expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+        });
+      }
 
       console.log('Successfully stored connection in database');
     } catch (userInfoError) {
@@ -158,22 +182,28 @@ serve(async (req) => {
     }
 
     // Redirect back to app with success parameter
+    const redirectUrl = 'https://reel-stream-forge.lovable.app/connections?success=true';
+    console.log('Redirecting to:', redirectUrl);
+    
     return new Response(null, {
       status: 302,
       headers: {
         ...corsHeaders,
-        'Location': 'https://reel-stream-forge.lovable.app/connections?success=true',
+        'Location': redirectUrl,
       },
     });
   } catch (error) {
     console.error('TikTok OAuth callback error:', error.message);
     
     // Redirect back to app with error parameter
+    const errorUrl = 'https://reel-stream-forge.lovable.app/connections?error=' + encodeURIComponent(error.message);
+    console.log('Redirecting to error URL:', errorUrl);
+    
     return new Response(null, {
       status: 302,
       headers: {
         ...corsHeaders,
-        'Location': 'https://reel-stream-forge.lovable.app/connections?error=' + encodeURIComponent(error.message),
+        'Location': errorUrl,
       },
     });
   }

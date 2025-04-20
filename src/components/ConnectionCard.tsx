@@ -1,18 +1,29 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Connection } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/components/ui/use-toast";
 
 interface ConnectionCardProps {
   connection: Partial<Connection>;
   onConnect: (platform: Connection['platform']) => void;
   isConnecting: boolean;
   disabled?: boolean;
+  onDisconnect?: (id: string, platform: Connection['platform']) => void;
 }
 
-const ConnectionCard = ({ connection, onConnect, isConnecting, disabled = false }: ConnectionCardProps) => {
+const ConnectionCard = ({ 
+  connection, 
+  onConnect, 
+  isConnecting, 
+  disabled = false,
+  onDisconnect
+}: ConnectionCardProps) => {
   const [isHovering, setIsHovering] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   
   const getPlatformLogo = (platform: Connection['platform']) => {
     switch (platform) {
@@ -62,6 +73,24 @@ const ConnectionCard = ({ connection, onConnect, isConnecting, disabled = false 
     }
   };
 
+  const handleDisconnect = async () => {
+    if (!connection.id || !connection.platform || !onDisconnect) return;
+    
+    try {
+      setDisconnecting(true);
+      await onDisconnect(connection.id, connection.platform);
+    } catch (error) {
+      toast({
+        title: "Error disconnecting",
+        description: "There was a problem disconnecting your account.",
+        variant: "destructive",
+      });
+      console.error("Error disconnecting:", error);
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   return (
     <Card 
       className={`card-hover ${isHovering ? 'border-brand-purple/50' : ''}`}
@@ -105,8 +134,13 @@ const ConnectionCard = ({ connection, onConnect, isConnecting, disabled = false 
             <Button variant="outline" className="flex-1">
               Refresh
             </Button>
-            <Button variant="secondary" className="flex-1">
-              Disconnect
+            <Button 
+              variant="secondary" 
+              className="flex-1"
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+            >
+              {disconnecting ? "Disconnecting..." : "Disconnect"}
             </Button>
           </div>
         ) : (

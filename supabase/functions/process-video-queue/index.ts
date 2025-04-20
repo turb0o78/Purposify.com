@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -199,12 +198,89 @@ async function uploadVideo(platform: string, videoUrl: string, title: string, de
   console.log(`Uploading to ${platform}: ${title}`);
   
   try {
-    // Note: In a real implementation, we would upload the actual video file
-    // For this example, we'll simulate the upload process
-    // A full implementation would use platform-specific upload APIs
+    if (platform === 'tiktok') {
+      console.log('Initiating TikTok direct upload');
+      
+      // First, we need to initiate the upload and get the upload_url
+      const initResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          post_info: {
+            title,
+            privacy_level: 'SELF_ONLY', // Upload as draft by default
+            disable_duet: false,
+            disable_comment: false,
+            disable_stitch: false,
+            video_cover_timestamp_ms: 0
+          }
+        })
+      });
+
+      if (!initResponse.ok) {
+        const errorText = await initResponse.text();
+        throw new Error(`TikTok upload initialization failed: ${errorText}`);
+      }
+
+      const initData = await initResponse.json();
+      console.log('TikTok upload initialized:', initData);
+
+      // Download the video from source
+      const videoResponse = await fetch(videoUrl);
+      const videoBuffer = await videoResponse.arrayBuffer();
+
+      // Upload the video to TikTok
+      const uploadResponse = await fetch(initData.data.upload_url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'video/mp4'
+        },
+        body: videoBuffer
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload video to TikTok');
+      }
+
+      // Complete the upload process
+      const completeResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/video/complete/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          video_id: initData.data.video_id,
+          post_info: {
+            title,
+            description,
+            privacy_level: 'SELF_ONLY', // Upload as draft
+            disable_duet: false,
+            disable_comment: false,
+            disable_stitch: false
+          }
+        })
+      });
+
+      if (!completeResponse.ok) {
+        const errorText = await completeResponse.text();
+        throw new Error(`Failed to complete TikTok upload: ${errorText}`);
+      }
+
+      const completeData = await completeResponse.json();
+      console.log('TikTok upload completed:', completeData);
+
+      return {
+        success: true,
+        videoId: completeData.data.video_id,
+        url: `https://www.tiktok.com/@username/video/${completeData.data.video_id}`
+      };
+    }
     
     if (platform === 'youtube') {
-      // YouTube upload would typically use the YouTube Data API
       console.log(`Simulating YouTube upload for: ${title}`);
       
       // A real implementation would upload the video using the YouTube API
@@ -215,20 +291,6 @@ async function uploadVideo(platform: string, videoUrl: string, title: string, de
         success: true, 
         videoId: simulatedVideoId,
         url: `https://www.youtube.com/watch?v=${simulatedVideoId}` 
-      };
-    } 
-    else if (platform === 'tiktok') {
-      // TikTok upload would use the TikTok API
-      console.log(`Simulating TikTok upload for: ${title}`);
-      
-      // A real implementation would upload the video using the TikTok API
-      // For now, we'll just simulate a successful upload
-      const simulatedVideoId = `TT_${Date.now().toString(36)}`;
-      
-      return { 
-        success: true, 
-        videoId: simulatedVideoId,
-        url: `https://www.tiktok.com/@username/video/${simulatedVideoId}` 
       };
     }
     

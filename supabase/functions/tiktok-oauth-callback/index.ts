@@ -23,8 +23,7 @@ serve(async (req) => {
       codeExists: !!code, 
       stateExists: !!state,
       error,
-      errorDescription,
-      rawUrl: req.url
+      errorDescription 
     })
     
     // Check for TikTok-returned errors first
@@ -76,86 +75,62 @@ serve(async (req) => {
       }).toString(),
     })
 
-    // Log raw token response for debugging
-    const tokenResponseText = await tokenResponse.text();
-    console.log('Raw token response:', tokenResponseText);
+    const tokenData = await tokenResponse.json()
+    console.log('Token response status:', tokenResponse.status)
     
-    let tokenData;
-    try {
-      tokenData = JSON.parse(tokenResponseText);
-      console.log('Token response status:', tokenResponse.status);
-      
-      if (!tokenResponse.ok) {
-        console.error('Failed to get access token:', tokenData);
-        throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
-      }
-    } catch (parseError) {
-      console.error('Failed to parse token response:', parseError);
-      throw new Error(`Failed to parse token response: ${tokenResponseText.substring(0, 100)}...`);
+    if (!tokenResponse.ok) {
+      console.error('Failed to get access token:', tokenData)
+      throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`)
     }
 
-    console.log('Successfully obtained access token');
+    console.log('Successfully obtained access token')
 
     // Get user info using the new access token
-    try {
-      // IMPORTANT: The fields parameter is required by TikTok API
-      const userResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
-        method: 'POST', // Changed to POST as per TikTok API v2 requirements
-        headers: {
-          'Authorization': `Bearer ${tokenData.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fields: ['open_id', 'union_id', 'avatar_url', 'avatar_url_100', 'avatar_url_200', 
-                  'avatar_large_url', 'display_name', 'bio_description', 'profile_deep_link', 'is_verified']
-        }),
-      });
+    // IMPORTANT: The fields parameter is required by TikTok API
+    const userResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      method: 'POST', // Changed to POST as per TikTok API v2 requirements
+      body: JSON.stringify({
+        fields: ['open_id', 'union_id', 'avatar_url', 'avatar_url_100', 'avatar_url_200', 
+                'avatar_large_url', 'display_name', 'bio_description', 'profile_deep_link', 'is_verified']
+      }),
+    })
 
-      // Log raw user response for debugging
-      const userResponseText = await userResponse.text();
-      console.log('Raw user info response:', userResponseText);
-      
-      let userData;
-      try {
-        userData = JSON.parse(userResponseText);
-        console.log('User info response status:', userResponse.status);
-        
-        if (!userResponse.ok) {
-          console.error('Failed to get user info:', userData);
-          throw new Error(`Failed to get user info: ${JSON.stringify(userData)}`);
-        }
-      } catch (parseError) {
-        console.error('Failed to parse user response:', parseError);
-        throw new Error(`Failed to parse user response: ${userResponseText.substring(0, 100)}...`);
-      }
-
-      console.log('Successfully obtained user info', userData);
-
-      // Extract user data from the TikTok response (V2 API structure)
-      const userInfo = userData.data?.user || {};
-      
-      // Store connection in database
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
-
-      await supabaseClient.from('platform_connections').upsert({
-        user_id: userId,
-        platform: 'tiktok',
-        platform_user_id: userInfo.open_id || 'unknown',
-        platform_username: userInfo.display_name || 'TikTok User',
-        platform_avatar_url: userInfo.avatar_url || userInfo.avatar_large_url || null,
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
-      });
-
-      console.log('Successfully stored connection in database');
-    } catch (userInfoError) {
-      console.error('Error getting user info:', userInfoError);
-      throw userInfoError;
+    const userData = await userResponse.json()
+    console.log('User info response status:', userResponse.status)
+    console.log('User info response body:', userData)
+    
+    if (!userResponse.ok) {
+      console.error('Failed to get user info:', userData)
+      throw new Error(`Failed to get user info: ${JSON.stringify(userData)}`)
     }
+
+    console.log('Successfully obtained user info', userData)
+
+    // Store connection in database
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // Extract user data from the TikTok response (V2 API structure)
+    const userInfo = userData.data?.user || {};
+    
+    await supabaseClient.from('platform_connections').upsert({
+      user_id: userId,
+      platform: 'tiktok',
+      platform_user_id: userInfo.open_id || 'unknown',
+      platform_username: userInfo.display_name || userInfo.nickname || 'TikTok User',
+      platform_avatar_url: userInfo.avatar_url || userInfo.avatar_large_url || null,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+    })
+
+    console.log('Successfully stored connection in database')
 
     // Redirect back to app with success parameter
     return new Response(null, {
@@ -164,9 +139,9 @@ serve(async (req) => {
         ...corsHeaders,
         'Location': 'https://reel-stream-forge.lovable.app/connections?success=true',
       },
-    });
+    })
   } catch (error) {
-    console.error('TikTok OAuth callback error:', error.message);
+    console.error('TikTok OAuth callback error:', error.message)
     
     // Redirect back to app with error parameter
     return new Response(null, {
@@ -175,6 +150,6 @@ serve(async (req) => {
         ...corsHeaders,
         'Location': 'https://reel-stream-forge.lovable.app/connections?error=' + encodeURIComponent(error.message),
       },
-    });
+    })
   }
 })

@@ -44,19 +44,19 @@ serve(async (req) => {
     const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tiktok-oauth-callback`
     
     console.log('Initiating TikTok OAuth with redirect URI:', redirectUri)
+    console.log('Using client key:', clientKey)
     
     // Generate a random string to use as a CSRF protection token (combined with user ID)
     const csrfToken = crypto.randomUUID()
     const state = `${user.id}_${csrfToken}`
     
-    // Format params exactly as required by TikTok documentation - ORDER MATTERS!
-    const params = new URLSearchParams({
-      client_key: clientKey,
-      response_type: 'code',
-      scope: 'user.info.basic,video.list',
-      redirect_uri: redirectUri,
-      state: state
-    })
+    // Format params exactly as required by TikTok documentation
+    const params = new URLSearchParams()
+    params.append('client_key', clientKey)
+    params.append('response_type', 'code')
+    params.append('scope', 'user.info.basic,video.list')
+    params.append('redirect_uri', redirectUri)
+    params.append('state', state)
     
     const authUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`
     console.log('Authorization URL:', authUrl)

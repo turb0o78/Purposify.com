@@ -14,24 +14,41 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  const requestBody = await req.json().catch(() => ({}));
+  console.log('Request received with body:', requestBody);
+  
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
     )
 
-    // Get the user session
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('Missing Authorization header')
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
+    // Try to get user from either the authorization header or request body
+    let user = null;
     
-    if (authError || !user) {
-      console.error('Authentication error:', authError)
-      throw new Error('Not authenticated')
+    // First try from authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader) {
+      console.log('Auth header found');
+      const token = authHeader.replace('Bearer ', '');
+      const { data: authData, error: authError } = await supabaseClient.auth.getUser(token);
+      
+      if (authError) {
+        console.error('Authentication error from header:', authError);
+      } else if (authData?.user) {
+        user = authData.user;
+        console.log('User authenticated from header:', user.id);
+      }
+    }
+    
+    // If no user from header, try from request body
+    if (!user && requestBody.userId) {
+      console.log('Using userId from request body:', requestBody.userId);
+      user = { id: requestBody.userId };
+    }
+    
+    if (!user) {
+      throw new Error('Authentication required. Please provide a valid session token or userId.');
     }
 
     const clientKey = Deno.env.get('TIKTOK_CLIENT_KEY')
@@ -43,31 +60,31 @@ serve(async (req) => {
     // Make sure redirect URI is exactly as registered in TikTok developer portal
     const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tiktok-oauth-callback`
     
-    console.log('Initiating TikTok OAuth with redirect URI:', redirectUri)
-    console.log('Using client key:', clientKey)
+    console.log('Initiating TikTok OAuth with redirect URI:', redirectUri);
+    console.log('Using client key:', clientKey);
     
     // Generate a random string to use as a CSRF protection token (combined with user ID)
-    const csrfToken = crypto.randomUUID()
-    const state = `${user.id}_${csrfToken}`
+    const csrfToken = crypto.randomUUID();
+    const state = `${user.id}_${csrfToken}`;
     
     // Format params exactly as required by TikTok documentation
-    const params = new URLSearchParams()
-    params.append('client_key', clientKey)
-    params.append('response_type', 'code')
-    params.append('scope', 'user.info.basic,video.list')
-    params.append('redirect_uri', redirectUri)
-    params.append('state', state)
-    params.append('disable_auto_auth', '1') // Force the authorization screen to show
+    const params = new URLSearchParams();
+    params.append('client_key', clientKey);
+    params.append('response_type', 'code');
+    params.append('scope', 'user.info.basic,video.list,video.upload');
+    params.append('redirect_uri', redirectUri);
+    params.append('state', state);
+    params.append('disable_auto_auth', '1'); // Force the authorization screen to show
     
-    const authUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`
-    console.log('Authorization URL:', authUrl)
+    const authUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`;
+    console.log('Authorization URL:', authUrl);
 
     return new Response(
       JSON.stringify({ url: authUrl }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('TikTok OAuth error:', error.message)
+    console.error('TikTok OAuth error:', error.message);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

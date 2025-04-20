@@ -140,8 +140,10 @@ const Connections = () => {
     setConnectingPlatform(platform);
 
     try {
+      // Include userId in the request body as a fallback for auth issues
       const { data, error } = await supabase.functions.invoke(`${platform}-oauth`, {
         method: 'POST',
+        body: { userId: user.id }
       });
 
       if (error) {

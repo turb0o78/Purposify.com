@@ -1,9 +1,9 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { TiktokIcon, YoutubeIcon } from "@/components/icons";
 import { ArrowRight, Check } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -153,6 +153,17 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="bg-white py-8 border-t border-gray-200">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-center items-center gap-4 text-sm text-gray-600">
+            <Link to="/privacy" className="hover:text-brand-purple">Privacy Policy</Link>
+            <span className="hidden md:inline">•</span>
+            <Link to="/terms" className="hover:text-brand-purple">Terms & Conditions</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

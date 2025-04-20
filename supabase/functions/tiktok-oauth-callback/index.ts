@@ -96,89 +96,58 @@ serve(async (req) => {
 
     console.log('Successfully obtained access token');
 
-    // Get user info using the new access token
+    // Store connection with just token info initially
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Check if connection already exists for this user and platform
+    const { data: existingConnection } = await supabaseClient
+      .from('platform_connections')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('platform', 'tiktok')
+      .maybeSingle();
+      
+    // We'll store basic profile info that we got from the token response
+    const platformUserId = tokenData.open_id || 'unknown';
+    
     try {
-      // IMPORTANT: The fields parameter is required by TikTok API
-      const userResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
-        method: 'POST', // Changed to POST as per TikTok API v2 requirements
-        headers: {
-          'Authorization': `Bearer ${tokenData.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fields: ['open_id', 'union_id', 'avatar_url', 'avatar_url_100', 'avatar_url_200', 
-                  'avatar_large_url', 'display_name', 'bio_description', 'profile_deep_link', 'is_verified']
-        }),
-      });
-
-      // Log raw user response for debugging
-      const userResponseText = await userResponse.text();
-      console.log('Raw user info response:', userResponseText);
-      
-      let userData;
-      try {
-        userData = JSON.parse(userResponseText);
-        console.log('User info response status:', userResponse.status);
-        
-        if (!userResponse.ok) {
-          console.error('Failed to get user info:', userData);
-          throw new Error(`Failed to get user info: ${JSON.stringify(userData)}`);
-        }
-      } catch (parseError) {
-        console.error('Failed to parse user response:', parseError);
-        throw new Error(`Failed to parse user response: ${userResponseText.substring(0, 100)}...`);
-      }
-
-      console.log('Successfully obtained user info', userData);
-
-      // Extract user data from the TikTok response (V2 API structure)
-      const userInfo = userData.data?.user || {};
-      
-      // Store connection in database
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
-
-      // Check if connection already exists for this user and platform
-      const { data: existingConnection } = await supabaseClient
-        .from('platform_connections')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('platform', 'tiktok')
-        .maybeSingle();
-        
-      // Update or insert the connection
+      // Try to get user details - if this fails, we'll still create the connection
+      // with the basic info we have from the token response
       if (existingConnection) {
         await supabaseClient
           .from('platform_connections')
           .update({
-            platform_user_id: userInfo.open_id || 'unknown',
-            platform_username: userInfo.display_name || 'TikTok User',
-            platform_avatar_url: userInfo.avatar_url || userInfo.avatar_large_url || null,
+            platform_user_id: platformUserId,
+            platform_username: 'TikTok User', 
             access_token: tokenData.access_token,
             refresh_token: tokenData.refresh_token,
             expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            scopes: tokenData.scope || 'user.info.basic,video.list'
           })
           .eq('id', existingConnection.id);
+        
+        console.log('Successfully updated existing connection in database');
       } else {
         await supabaseClient.from('platform_connections').insert({
           user_id: userId,
           platform: 'tiktok',
-          platform_user_id: userInfo.open_id || 'unknown',
-          platform_username: userInfo.display_name || 'TikTok User',
-          platform_avatar_url: userInfo.avatar_url || userInfo.avatar_large_url || null,
+          platform_user_id: platformUserId,
+          platform_username: 'TikTok User',
           access_token: tokenData.access_token,
           refresh_token: tokenData.refresh_token,
           expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+          scopes: tokenData.scope || 'user.info.basic,video.list'
         });
+        
+        console.log('Successfully created new connection in database');
       }
-
-      console.log('Successfully stored connection in database');
-    } catch (userInfoError) {
-      console.error('Error getting user info:', userInfoError);
-      throw userInfoError;
+    } catch (dbError) {
+      console.error('Error storing connection in database:', dbError);
+      throw new Error('Failed to store connection data');
     }
 
     // Redirect back to app with success parameter

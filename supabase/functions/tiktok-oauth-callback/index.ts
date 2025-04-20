@@ -39,8 +39,23 @@ serve(async (req) => {
       throw new Error('Missing state parameter')
     }
 
+    // Extract user ID from state (format: userId_csrfToken)
+    const userId = state.split('_')[0]
+    if (!userId) {
+      throw new Error('Invalid state format')
+    }
+
     const clientKey = Deno.env.get('TIKTOK_CLIENT_KEY')
+    if (!clientKey) {
+      throw new Error('TikTok client key not configured')
+    }
+    
     const clientSecret = Deno.env.get('TIKTOK_CLIENT_SECRET')
+    if (!clientSecret) {
+      throw new Error('TikTok client secret not configured')
+    }
+
+    // Must match exactly what was used in the authorization request
     const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tiktok-oauth-callback`
 
     console.log('Exchanging code for access token with redirect URI:', redirectUri)
@@ -54,10 +69,10 @@ serve(async (req) => {
       body: new URLSearchParams({
         client_key: clientKey,
         client_secret: clientSecret,
-        code,
+        code: code,
         grant_type: 'authorization_code',
         redirect_uri: redirectUri,
-      }),
+      }).toString(),
     })
 
     const tokenData = await tokenResponse.json()
@@ -65,7 +80,7 @@ serve(async (req) => {
     
     if (!tokenResponse.ok) {
       console.error('Failed to get access token:', tokenData)
-      throw new Error('Failed to get access token: ' + JSON.stringify(tokenData))
+      throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`)
     }
 
     console.log('Successfully obtained access token')
@@ -83,7 +98,7 @@ serve(async (req) => {
     
     if (!userResponse.ok) {
       console.error('Failed to get user info:', userData)
-      throw new Error('Failed to get user info')
+      throw new Error(`Failed to get user info: ${JSON.stringify(userData)}`)
     }
 
     console.log('Successfully obtained user info', userData)
@@ -98,7 +113,7 @@ serve(async (req) => {
     const userInfo = userData.data?.user || {};
     
     await supabaseClient.from('platform_connections').upsert({
-      user_id: state,
+      user_id: userId,
       platform: 'tiktok',
       platform_user_id: userInfo.open_id || 'unknown',
       platform_username: userInfo.display_name || userInfo.nickname || 'TikTok User',

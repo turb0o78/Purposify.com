@@ -35,23 +35,34 @@ serve(async (req) => {
     }
 
     const clientKey = Deno.env.get('TIKTOK_CLIENT_KEY')
-    
-    // Per TikTok docs, the redirect URI must be absolute and registered in the developer portal
+    if (!clientKey) {
+      console.error('Missing TIKTOK_CLIENT_KEY environment variable')
+      throw new Error('TikTok client key not configured')
+    }
+
+    // Make sure redirect URI is exactly as registered in TikTok developer portal
     const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tiktok-oauth-callback`
     
     console.log('Initiating TikTok OAuth with redirect URI:', redirectUri)
     
-    // Format params exactly as required by TikTok documentation
+    // Generate a random string to use as a CSRF protection token (combined with user ID)
+    const csrfToken = crypto.randomUUID()
+    const state = `${user.id}_${csrfToken}`
+    
+    // Format params exactly as required by TikTok documentation - ORDER MATTERS!
     const params = new URLSearchParams({
       client_key: clientKey,
-      response_type: 'code',  // must always be 'code'
+      response_type: 'code',
       scope: 'user.info.basic,video.list',
       redirect_uri: redirectUri,
-      state: user.id,  // Using user.id as state to identify the user in callback
+      state: state
     })
+    
+    const authUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`
+    console.log('Authorization URL:', authUrl)
 
     return new Response(
-      JSON.stringify({ url: `${TIKTOK_AUTH_URL}?${params.toString()}` }),
+      JSON.stringify({ url: authUrl }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

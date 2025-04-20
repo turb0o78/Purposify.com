@@ -10,7 +10,6 @@ export interface Connection {
   status: ConnectionStatus;
   avatar?: string;
   connected_at?: Date;
-  expires_at?: Date;
 }
 
 export type ContentStatus = "pending" | "processing" | "published" | "failed";

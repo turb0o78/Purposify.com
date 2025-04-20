@@ -1,30 +1,17 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Connection } from "@/types";
-import { RefreshCw } from "lucide-react";
 
 interface ConnectionCardProps {
   connection: Partial<Connection>;
   onConnect: (platform: Connection['platform']) => void;
-  onDisconnect: (platform: Connection['platform']) => void;
-  onRefresh: (platform: Connection['platform']) => void;
   isConnecting: boolean;
-  isVerifying: boolean;
   disabled?: boolean;
 }
 
-const ConnectionCard = ({ 
-  connection,
-  onConnect,
-  onDisconnect,
-  onRefresh,
-  isConnecting,
-  isVerifying,
-  disabled = false
-}: ConnectionCardProps) => {
+const ConnectionCard = ({ connection, onConnect, isConnecting, disabled = false }: ConnectionCardProps) => {
   const [isHovering, setIsHovering] = useState(false);
   
   const getPlatformLogo = (platform: Connection['platform']) => {
@@ -75,11 +62,6 @@ const ConnectionCard = ({
     }
   };
 
-  const formatDate = (date?: Date) => {
-    if (!date) return 'Unknown';
-    return date.toLocaleString();
-  };
-
   return (
     <Card 
       className={`card-hover ${isHovering ? 'border-brand-purple/50' : ''}`}
@@ -101,23 +83,13 @@ const ConnectionCard = ({
               </CardDescription>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {isVerifying && (
-              <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
-            )}
-            {connection.status && getStatusBadge(connection.status)}
-          </div>
+          {connection.status && getStatusBadge(connection.status)}
         </div>
       </CardHeader>
       <CardContent>
         {connection.status === "connected" ? (
           <div className="text-sm text-gray-500">
-            <p>Connected since: {formatDate(connection.connected_at)}</p>
-            {connection.expires_at && (
-              <p className="mt-1">
-                Expires: {formatDate(connection.expires_at)}
-              </p>
-            )}
+            <p>Last synced: {new Date().toLocaleDateString()}</p>
           </div>
         ) : (
           <p className="text-sm text-gray-500">
@@ -130,35 +102,18 @@ const ConnectionCard = ({
       <CardFooter>
         {connection.status === "connected" ? (
           <div className="flex gap-2 w-full">
-            <Button 
-              variant="outline" 
-              className="flex-1"
-              onClick={() => onRefresh(connection.platform!)}
-              disabled={isVerifying}
-            >
-              {isVerifying ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Verifying...
-                </>
-              ) : (
-                "Verify Connection"
-              )}
+            <Button variant="outline" className="flex-1">
+              Refresh
             </Button>
-            <Button 
-              variant="secondary" 
-              className="flex-1"
-              onClick={() => onDisconnect(connection.platform!)}
-              disabled={isVerifying}
-            >
+            <Button variant="secondary" className="flex-1">
               Disconnect
             </Button>
           </div>
         ) : (
           <Button 
             className={`w-full ${connection.platform === "tiktok" ? "platform-tiktok" : "platform-youtube"}`}
-            onClick={() => onConnect(connection.platform!)}
-            disabled={isConnecting || disabled || isVerifying}
+            onClick={() => onConnect(connection.platform)}
+            disabled={isConnecting || disabled}
           >
             {isConnecting ? "Connecting..." : `Connect to ${connection.platform === "tiktok" ? "TikTok" : "YouTube"}`}
             {disabled && " (Login required)"}

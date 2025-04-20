@@ -41,14 +41,9 @@ serve(async (req) => {
     }
 
     // Extract user ID from state (format: userId_csrfToken)
-    const stateComponents = state.split('_');
-    if (stateComponents.length < 2) {
-      throw new Error('Invalid state format: missing user ID or CSRF token');
-    }
-    
-    const userId = stateComponents[0];
+    const userId = state.split('_')[0]
     if (!userId) {
-      throw new Error('Invalid state format: missing user ID')
+      throw new Error('Invalid state format')
     }
 
     const clientKey = Deno.env.get('TIKTOK_CLIENT_KEY')
@@ -90,7 +85,7 @@ serve(async (req) => {
       tokenData = JSON.parse(tokenResponseText);
       console.log('Token response status:', tokenResponse.status);
       
-      if (!tokenResponse.ok || !tokenData.access_token) {
+      if (!tokenResponse.ok) {
         console.error('Failed to get access token:', tokenData);
         throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
       }
@@ -99,55 +94,67 @@ serve(async (req) => {
       throw new Error(`Failed to parse token response: ${tokenResponseText.substring(0, 100)}...`);
     }
 
-    console.log('Successfully obtained access token with expiry:', tokenData.expires_in);
+    console.log('Successfully obtained access token');
 
+    // Get user info using the new access token
     try {
-      // Verify the token was successfully obtained before storing connection
-      if (!tokenData.open_id) {
-        throw new Error('Missing open_id in token response - cannot identify TikTok user');
-      }
+      // IMPORTANT: The fields parameter is required by TikTok API
+      const userResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
+        method: 'POST', // Changed to POST as per TikTok API v2 requirements
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fields: ['open_id', 'union_id', 'avatar_url', 'avatar_url_100', 'avatar_url_200', 
+                  'avatar_large_url', 'display_name', 'bio_description', 'profile_deep_link', 'is_verified']
+        }),
+      });
+
+      // Log raw user response for debugging
+      const userResponseText = await userResponse.text();
+      console.log('Raw user info response:', userResponseText);
       
-      // Store connection in database with minimal information
-      // TikTok API v2 returns user open_id in the token response
+      let userData;
+      try {
+        userData = JSON.parse(userResponseText);
+        console.log('User info response status:', userResponse.status);
+        
+        if (!userResponse.ok) {
+          console.error('Failed to get user info:', userData);
+          throw new Error(`Failed to get user info: ${JSON.stringify(userData)}`);
+        }
+      } catch (parseError) {
+        console.error('Failed to parse user response:', parseError);
+        throw new Error(`Failed to parse user response: ${userResponseText.substring(0, 100)}...`);
+      }
+
+      console.log('Successfully obtained user info', userData);
+
+      // Extract user data from the TikTok response (V2 API structure)
+      const userInfo = userData.data?.user || {};
+      
+      // Store connection in database
       const supabaseClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      // Delete any existing connection for this user and platform
-      // This ensures we don't have duplicate connections
-      await supabaseClient
-        .from('platform_connections')
-        .delete()
-        .match({
-          user_id: userId,
-          platform: 'tiktok'
-        });
-      
-      // Insert the new connection
-      const { data: connection, error: insertError } = await supabaseClient
-        .from('platform_connections')
-        .insert({
-          user_id: userId,
-          platform: 'tiktok',
-          platform_user_id: tokenData.open_id,
-          platform_username: 'TikTok User', // Default name since we can't fetch it
-          platform_avatar_url: null,
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token || null,
-          expires_at: new Date(Date.now() + ((tokenData.expires_in || 86400) * 1000)).toISOString(),
-        })
-        .select()
-        .single();
-        
-      if (insertError) {
-        throw insertError;
-      }
+      await supabaseClient.from('platform_connections').upsert({
+        user_id: userId,
+        platform: 'tiktok',
+        platform_user_id: userInfo.open_id || 'unknown',
+        platform_username: userInfo.display_name || 'TikTok User',
+        platform_avatar_url: userInfo.avatar_url || userInfo.avatar_large_url || null,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+      });
 
-      console.log('Successfully stored connection in database:', connection?.id);
-    } catch (connectionError) {
-      console.error('Error storing connection:', connectionError);
-      throw connectionError;
+      console.log('Successfully stored connection in database');
+    } catch (userInfoError) {
+      console.error('Error getting user info:', userInfoError);
+      throw userInfoError;
     }
 
     // Redirect back to app with success parameter

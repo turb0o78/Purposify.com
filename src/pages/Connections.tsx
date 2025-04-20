@@ -7,7 +7,7 @@ import ConnectionCard from "@/components/ConnectionCard";
 import { toast } from "@/components/ui/use-toast";
 import { Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
@@ -29,8 +29,6 @@ const Connections = () => {
   const [searchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
-  const [isVerifying, setIsVerifying] = useState<boolean>(false);
-  const navigate = useNavigate();
 
   // Check for current user session
   useEffect(() => {
@@ -64,7 +62,7 @@ const Connections = () => {
     const success = searchParams.get('success');
     const error = searchParams.get('error');
 
-    if (success === 'true') {
+    if (success) {
       toast({
         title: "Connection successful",
         description: "Your account has been connected successfully.",
@@ -74,76 +72,41 @@ const Connections = () => {
           </div>
         ),
       });
-      
-      // Clear the URL parameters after showing the toast
-      navigate('/connections', { replace: true });
-      
-      // Fetch connections to update the UI
-      fetchConnections();
     } else if (error) {
       toast({
         title: "Connection failed",
         description: decodeURIComponent(error),
         variant: "destructive",
       });
-      
-      // Clear the URL parameters after showing the toast
-      navigate('/connections', { replace: true });
     }
-  }, [searchParams, navigate]);
+  }, [searchParams]);
 
   // Fetch existing connections
-  const fetchConnections = async () => {
-    if (!user) return [];
-    
-    setIsVerifying(true);
-    
-    try {
+  useEffect(() => {
+    const fetchConnections = async () => {
+      if (!user) return;
+
       const { data: existingConnections, error } = await supabase
         .from('platform_connections')
-        .select('*')
-        .eq('user_id', user.id);
+        .select('*');
 
       if (error) {
         console.error('Error fetching connections:', error);
-        return [];
+        return;
       }
 
-      const connectionsWithValidation = existingConnections.map(conn => ({
+      setConnections(existingConnections.map(conn => ({
         id: conn.id,
-        platform: conn.platform as Connection['platform'],
+        platform: conn.platform,
         name: conn.platform_username || `${conn.platform} Account`,
         status: "connected" as const,
         avatar: conn.platform_avatar_url,
         connected_at: new Date(conn.created_at),
-        expires_at: conn.expires_at ? new Date(conn.expires_at) : undefined
-      }));
-      
-      // Check if tokens are expired
-      const validConnections = connectionsWithValidation.filter(conn => {
-        if (conn.expires_at && new Date() > conn.expires_at) {
-          console.log(`${conn.platform} token expired at ${conn.expires_at}`);
-          return false;
-        }
-        return true;
-      });
-      
-      setConnections(validConnections);
-      return validConnections;
-    } catch (err) {
-      console.error("Error processing connections:", err);
-      return [];
-    } finally {
-      setIsVerifying(false);
-    }
-  };
+      })));
+    };
 
-  // Fetch connections when user changes
-  useEffect(() => {
     if (user) {
       fetchConnections();
-    } else {
-      setConnections([]);
     }
   }, [user]);
 
@@ -181,64 +144,6 @@ const Connections = () => {
       });
       setConnecting(false);
       setConnectingPlatform(null);
-    }
-  };
-
-  const handleDisconnect = async (platform: Connection['platform']) => {
-    if (!user) return;
-    
-    try {
-      const { error } = await supabase
-        .from('platform_connections')
-        .delete()
-        .match({ 
-          user_id: user.id,
-          platform: platform
-        });
-        
-      if (error) {
-        throw error;
-      }
-      
-      toast({
-        title: "Account disconnected",
-        description: `Your ${platform} account has been disconnected.`,
-      });
-      
-      // Refresh connections
-      fetchConnections();
-      
-    } catch (error) {
-      console.error(`Error disconnecting ${platform}:`, error);
-      toast({
-        title: "Disconnect failed",
-        description: `Failed to disconnect from ${platform}. Please try again.`,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleRefreshConnection = async (platform: Connection['platform']) => {
-    setIsVerifying(true);
-    
-    try {
-      // For now, just re-fetch the connections
-      // In the future, implement token refresh logic here
-      await fetchConnections();
-      
-      toast({
-        title: "Connection refreshed",
-        description: `Your ${platform} connection status has been updated.`,
-      });
-    } catch (error) {
-      console.error(`Error refreshing ${platform} connection:`, error);
-      toast({
-        title: "Refresh failed",
-        description: `Failed to refresh ${platform} connection. Please try again.`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsVerifying(false);
     }
   };
 
@@ -282,20 +187,14 @@ const Connections = () => {
         <ConnectionCard 
           connection={getConnectionByPlatform("tiktok")}
           onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-          onRefresh={handleRefreshConnection}
           isConnecting={connecting && connectingPlatform === "tiktok"}
-          isVerifying={isVerifying}
           disabled={!user}
         />
         
         <ConnectionCard 
           connection={getConnectionByPlatform("youtube")}
           onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-          onRefresh={handleRefreshConnection}
           isConnecting={connecting && connectingPlatform === "youtube"}
-          isVerifying={isVerifying}
           disabled={!user}
         />
       </div>

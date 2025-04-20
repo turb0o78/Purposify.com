@@ -1,7 +1,13 @@
-import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,126 +16,146 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { 
-  Layout, 
-  LayoutDashboard, 
-  Layers, 
-  Settings, 
-  HelpCircle,
-  LogOut
-} from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+
+interface NavLink {
+  name: string;
+  path: string;
+  icon?: React.ReactNode;
+}
 
 const Navbar = () => {
+  const { user, signOut } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const { user } = useAuth();
+  const [isMobile, setIsMobile] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate("/auth");
-    } catch (error: any) {
-      toast.error("Error logging out");
-    }
-  };
-
-  const navItems = [
+  const navLinks: NavLink[] = [
     {
       name: "Dashboard",
       path: "/dashboard",
-      icon: <LayoutDashboard className="h-4 w-4 mr-2" />,
     },
     {
       name: "Content",
       path: "/content",
-      icon: <Layout className="h-4 w-4 mr-2" />,
     },
     {
       name: "Workflows",
       path: "/workflows",
-      icon: <Layers className="h-4 w-4 mr-2" />,
+    },
+    {
+      name: "Contenu Republié",
+      path: "/republished-content",
     },
     {
       name: "Connections",
       path: "/connections",
-      icon: <Settings className="h-4 w-4 mr-2" />,
     },
   ];
 
-  return (
-    <nav className="border-b bg-white dark:bg-slate-900">
-      <div className="flex h-16 items-center px-4 md:px-6 justify-between">
-        <div className="flex items-center">
-          <Link to="/" className="flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-6 w-6 mr-2 text-brand-purple"
-            >
-              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              <path d="M12 12 6.219 3.44" />
-              <path d="M15.75 7.5 12 12l-3.75 4.5" />
-              <path d="M12 12h9" />
-            </svg>
-            <span className="font-bold text-xl gradient-text">ReelForge</span>
-          </Link>
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
 
-          <div className="hidden md:flex ml-10">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center px-4 py-2 mx-1 rounded-md text-sm font-medium transition-colors ${
-                  location.pathname === item.path
-                    ? "bg-brand-purple-light/20 text-brand-purple"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                {item.icon}
-                {item.name}
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Check if current route is active
+  const isActive = (path: string) => {
+    if (path === "/dashboard" && location.pathname === "/dashboard") {
+      return true;
+    }
+    return location.pathname.startsWith(path) && path !== "/dashboard";
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  return (
+    <nav className="border-b border-gray-200 bg-white">
+      <div className="container px-4 mx-auto flex justify-between items-center h-16">
+        <div className="flex items-center">
+          <Link to="/dashboard" className="flex items-center">
+            <span className="font-bold text-xl">ReelStreamForge</span>
+          </Link>
+        </div>
+
+        {/* Desktop Navigation */}
+        {!isMobile && (
+          <div className="hidden md:flex items-center space-x-1">
+            {navLinks.map((link) => (
+              <Link key={link.path} to={link.path}>
+                <Button
+                  variant={isActive(link.path) ? "secondary" : "ghost"}
+                  className="flex items-center gap-1"
+                >
+                  {link.icon}
+                  {link.name}
+                </Button>
               </Link>
             ))}
           </div>
-        </div>
+        )}
 
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" className="rounded-full">
-            <HelpCircle className="h-4 w-4" />
-          </Button>
-
-          <DropdownMenu open={userMenuOpen} onOpenChange={setUserMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src="/placeholder.svg" alt={user?.email || 'User'} />
-                  <AvatarFallback>{user?.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
+        {/* User Menu */}
+        <div className="flex items-center">
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="relative h-8 w-8 rounded-full"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage
+                        src={user?.user_metadata?.avatar_url || ""}
+                        alt="User avatar"
+                      />
+                      <AvatarFallback>
+                        {user?.email?.charAt(0).toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Account</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {user?.user_metadata?.full_name || user?.email || "User"}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user?.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <HelpCircle className="mr-2 h-4 w-4" />
-                <span>Support</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+              {isMobile && (
+                <>
+                  {navLinks.map((link) => (
+                    <DropdownMenuItem key={link.path} asChild>
+                      <Link to={link.path} className="flex items-center gap-1 cursor-pointer">
+                        {link.icon}
+                        {link.name}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuItem onClick={handleSignOut}>
+                Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

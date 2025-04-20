@@ -16,6 +16,7 @@ import Connections from "./pages/Connections";
 import NotFound from "./pages/NotFound";
 import Navbar from "./components/Navbar";
 import EditWorkflow from "./pages/EditWorkflow";
+import RepublishedContent from "./pages/RepublishedContent";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => {
               <Route path="/workflows/new" element={renderWithNavbar(NewWorkflow)} />
               <Route path="/workflows/edit/:id" element={renderWithNavbar(EditWorkflow)} />
               <Route path="/connections" element={renderWithNavbar(Connections)} />
+              <Route path="/republished-content" element={renderWithNavbar(RepublishedContent)} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

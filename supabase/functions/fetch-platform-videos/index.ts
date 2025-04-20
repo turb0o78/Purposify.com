@@ -45,6 +45,11 @@ serve(async (req) => {
     }
 
     console.log(`Found ${connections?.length || 0} connections for user ${user.id}`);
+    
+    // Log details about connections
+    connections.forEach(conn => {
+      console.log(`Connection: platform=${conn.platform}, username=${conn.platform_username || 'Unknown'}, token=${conn.access_token ? 'present' : 'missing'}`);
+    });
 
     const videos = [];
 
@@ -55,46 +60,56 @@ serve(async (req) => {
       try {
         console.log('Fetching TikTok videos with access token');
         
-        // Using the correct endpoint for TikTok API v2
+        // Using the correct TikTok API v2 endpoint and fields
+        // Documentation: https://developers.tiktok.com/doc/overview-of-tiktok-api-v2/
         const tiktokResponse = await fetch(
-          'https://open.tiktokapis.com/v2/video/list/',
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${tiktokConnection.access_token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              fields: ["id", "title", "video_description", "duration", "thumbnail_url", "create_time"]
-            })
-          }
-        );
+          'https://open.tiktokapis.com/v2/video/list/', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${tiktokConnection.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fields: ["id", "title", "video_description", "duration", "cover_image_url", "create_time"]
+          })
+        });
 
+        const responseText = await tiktokResponse.text();
+        console.log(`TikTok API raw response: ${responseText.substring(0, 500)}...`);
+        
         if (tiktokResponse.ok) {
-          const tiktokData = await tiktokResponse.json();
-          console.log(`TikTok API response: ${JSON.stringify(tiktokData).substring(0, 200)}...`);
-          
-          if (tiktokData.data && tiktokData.data.videos && Array.isArray(tiktokData.data.videos)) {
-            console.log(`Found ${tiktokData.data.videos.length} TikTok videos`);
-            const tiktokVideos = tiktokData.data.videos.map(video => ({
-              id: video.id,
-              platform: 'tiktok',
-              title: video.title || 'Untitled TikTok Video',
-              description: video.video_description,
-              thumbnail: video.thumbnail_url,
-              duration: video.duration,
-              createdAt: new Date(video.create_time * 1000),
-            }));
-            videos.push(...tiktokVideos);
-          } else {
-            console.log('No videos found in TikTok response or invalid response format:', JSON.stringify(tiktokData));
+          try {
+            const tiktokData = JSON.parse(responseText);
+            
+            if (tiktokData.data && tiktokData.data.videos && Array.isArray(tiktokData.data.videos)) {
+              console.log(`Found ${tiktokData.data.videos.length} TikTok videos`);
+              
+              const tiktokVideos = tiktokData.data.videos.map(video => ({
+                id: video.id,
+                platform: 'tiktok',
+                title: video.title || 'Untitled TikTok Video',
+                description: video.video_description,
+                thumbnail: video.cover_image_url, // Updated field name per TikTok API v2
+                duration: video.duration,
+                createdAt: new Date(video.create_time * 1000),
+              }));
+              
+              videos.push(...tiktokVideos);
+            } else {
+              console.log('No videos found in TikTok response or invalid response format:', 
+                          JSON.stringify(tiktokData).substring(0, 500));
+            }
+          } catch (parseError) {
+            console.error('Error parsing TikTok API response:', parseError);
+            throw new Error(`Failed to parse TikTok API response: ${responseText.substring(0, 100)}...`);
           }
         } else {
-          const errorText = await tiktokResponse.text();
-          console.error(`Error fetching TikTok videos: Status ${tiktokResponse.status} - ${errorText}`);
+          console.error(`Error fetching TikTok videos: Status ${tiktokResponse.status} - ${responseText}`);
+          throw new Error(`TikTok API error: Status ${tiktokResponse.status}`);
         }
       } catch (error) {
         console.error('Error fetching TikTok videos:', error);
+        throw new Error(`Failed to fetch TikTok videos: ${error.message}`);
       }
     } else {
       console.log('No TikTok connection found for this user');

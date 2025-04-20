@@ -50,10 +50,11 @@ serve(async (req) => {
     const state = `${user.id}_${csrfToken}`
     
     // Format params exactly as required by TikTok documentation - ORDER MATTERS!
+    // Added all relevant scopes for content repurposing
     const params = new URLSearchParams({
       client_key: clientKey,
       response_type: 'code',
-      scope: 'user.info.basic,video.list',
+      scope: 'user.info.basic,video.list,video.upload',
       redirect_uri: redirectUri,
       state: state
     })

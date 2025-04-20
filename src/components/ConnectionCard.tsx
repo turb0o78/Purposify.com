@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,13 +65,12 @@ const ConnectionCard = ({ connection, onConnect, isConnecting, disabled = false 
 
   const getLastSyncedDate = () => {
     if (connection.connected_at) {
-      return format(connection.connected_at, 'PP');
+      return format(new Date(connection.connected_at), 'PP');
     }
     return 'Never';
   };
 
   const isConnectionExpired = () => {
-    // Safely check if expires_at exists and if the current date is past it
     if (connection.expires_at) {
       return new Date() > new Date(connection.expires_at);
     }
@@ -133,7 +131,7 @@ const ConnectionCard = ({ connection, onConnect, isConnecting, disabled = false 
           <Button 
             className={`w-full ${connection.platform === "tiktok" ? "platform-tiktok" : "platform-youtube"}`}
             onClick={() => onConnect(connection.platform)}
-            disabled={isConnecting || disabled || isConnectionExpired()}
+            disabled={isConnecting || disabled || (connection.status === "connected" && isConnectionExpired())}
           >
             {isConnecting ? "Connecting..." : `Connect to ${connection.platform === "tiktok" ? "TikTok" : "YouTube"}`}
             {disabled && " (Login required)"}

@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Connection } from "@/types";
+import { format } from "date-fns";
 
 interface ConnectionCardProps {
   connection: Partial<Connection>;
@@ -62,6 +63,20 @@ const ConnectionCard = ({ connection, onConnect, isConnecting, disabled = false 
     }
   };
 
+  const getLastSyncedDate = () => {
+    if (connection.connected_at) {
+      return format(connection.connected_at, 'PP');
+    }
+    return 'Never';
+  };
+
+  const isConnectionExpired = () => {
+    if (connection.expires_at) {
+      return new Date() > connection.expires_at;
+    }
+    return false;
+  };
+
   return (
     <Card 
       className={`card-hover ${isHovering ? 'border-brand-purple/50' : ''}`}
@@ -89,7 +104,10 @@ const ConnectionCard = ({ connection, onConnect, isConnecting, disabled = false 
       <CardContent>
         {connection.status === "connected" ? (
           <div className="text-sm text-gray-500">
-            <p>Last synced: {new Date().toLocaleDateString()}</p>
+            <p>Last synced: {getLastSyncedDate()}</p>
+            {isConnectionExpired() && (
+              <p className="text-red-500 mt-1">Connection expired. Please reconnect.</p>
+            )}
           </div>
         ) : (
           <p className="text-sm text-gray-500">
@@ -113,7 +131,7 @@ const ConnectionCard = ({ connection, onConnect, isConnecting, disabled = false 
           <Button 
             className={`w-full ${connection.platform === "tiktok" ? "platform-tiktok" : "platform-youtube"}`}
             onClick={() => onConnect(connection.platform)}
-            disabled={isConnecting || disabled}
+            disabled={isConnecting || disabled || isConnectionExpired()}
           >
             {isConnecting ? "Connecting..." : `Connect to ${connection.platform === "tiktok" ? "TikTok" : "YouTube"}`}
             {disabled && " (Login required)"}

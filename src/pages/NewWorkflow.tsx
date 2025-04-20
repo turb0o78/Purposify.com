@@ -1,11 +1,14 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import WorkflowBuilder from "@/components/WorkflowBuilder";
 import { Button } from "@/components/ui/button";
-import { Connection } from "@/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
 import { ArrowLeft } from "lucide-react";
+import WorkflowTypeSelector from "@/components/WorkflowTypeSelector";
+import { Connection } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Mock data for connections
 const mockConnections: Connection[] = [
@@ -25,28 +28,19 @@ const mockConnections: Connection[] = [
   },
 ];
 
-const NewWorkflow = () => {
+export default function NewWorkflow() {
+  const [step, setStep] = useState(1);
+  const [workflowType, setWorkflowType] = useState<"future" | "existing">("future");
   const [isLoading, setIsLoading] = useState(false);
-  const [connections] = useState<Connection[]>(mockConnections);
   const navigate = useNavigate();
+  const { user } = useAuth();
   
-  const handleSave = (workflow: any) => {
-    setIsLoading(true);
-    
-    // Simulate saving to API
-    setTimeout(() => {
-      console.log("Saving workflow:", workflow);
-      setIsLoading(false);
-      
-      toast({
-        title: "Workflow created successfully",
-        description: "Your new content repurposing workflow is now active.",
-      });
-      
-      navigate("/workflows");
-    }, 1500);
+  const handleContinue = async () => {
+    if (step === 1) {
+      setStep(2);
+    }
   };
-  
+
   return (
     <div className="container mx-auto py-6">
       <div className="mb-6">
@@ -59,13 +53,26 @@ const NewWorkflow = () => {
         </p>
       </div>
       
-      <WorkflowBuilder 
-        connections={connections} 
-        onSave={handleSave}
-        isLoading={isLoading}
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Choose a Workflow Type</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <WorkflowTypeSelector 
+            value={workflowType} 
+            onChange={setWorkflowType}
+          />
+          
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleContinue}
+              disabled={isLoading}
+            >
+              Continue
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
-};
-
-export default NewWorkflow;
+}

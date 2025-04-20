@@ -54,6 +54,63 @@ export type Database = {
         }
         Relationships: []
       }
+      workflows: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          source_connection_id: string
+          source_platform: Database["public"]["Enums"]["platform_type"]
+          target_connection_id: string
+          target_platform: Database["public"]["Enums"]["platform_type"]
+          updated_at: string | null
+          user_id: string
+          workflow_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          source_connection_id: string
+          source_platform: Database["public"]["Enums"]["platform_type"]
+          target_connection_id: string
+          target_platform: Database["public"]["Enums"]["platform_type"]
+          updated_at?: string | null
+          user_id: string
+          workflow_type: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          source_connection_id?: string
+          source_platform?: Database["public"]["Enums"]["platform_type"]
+          target_connection_id?: string
+          target_platform?: Database["public"]["Enums"]["platform_type"]
+          updated_at?: string | null
+          user_id?: string
+          workflow_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflows_source_connection_id_fkey"
+            columns: ["source_connection_id"]
+            isOneToOne: false
+            referencedRelation: "platform_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflows_target_connection_id_fkey"
+            columns: ["target_connection_id"]
+            isOneToOne: false
+            referencedRelation: "platform_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

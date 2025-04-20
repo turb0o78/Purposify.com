@@ -73,12 +73,12 @@ serve(async (req) => {
       expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
     })
 
-    // Redirect back to app
+    // Redirect back to app - use the app URL instead of relative path
     return new Response(null, {
       status: 302,
       headers: {
         ...corsHeaders,
-        'Location': '/connections?success=true',
+        'Location': 'https://reel-stream-forge.lovable.app/connections?success=true',
       },
     })
   } catch (error) {
@@ -86,7 +86,7 @@ serve(async (req) => {
       status: 302,
       headers: {
         ...corsHeaders,
-        'Location': '/connections?error=' + encodeURIComponent(error.message),
+        'Location': 'https://reel-stream-forge.lovable.app/connections?error=' + encodeURIComponent(error.message),
       },
     })
   }

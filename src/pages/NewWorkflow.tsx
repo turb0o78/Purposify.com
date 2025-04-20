@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,8 +93,8 @@ export default function NewWorkflow() {
     }
   };
 
-  // Fetch connections when component mounts
-  useState(() => {
+  // Fixed the useState call to useEffect, which was causing the error
+  useEffect(() => {
     if (user) {
       fetchConnections();
     }

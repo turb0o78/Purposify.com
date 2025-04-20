@@ -9,9 +9,10 @@ import { Content } from "@/types";
 import { Plus, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/use-toast";
 
 const ContentPage = () => {
-  const { data: content = [], isLoading } = useUserContent();
+  const { data: content = [], isLoading, refetch: refetchContent } = useUserContent();
   const { data: platformVideos = [], isLoading: isLoadingVideos, refetch: refetchVideos } = usePlatformVideos();
   
   // Filter content based on status
@@ -24,8 +25,18 @@ const ContentPage = () => {
   const tiktokVideos = platformVideos.filter(video => video.platform === 'tiktok');
   const youtubeVideos = platformVideos.filter(video => video.platform === 'youtube');
   
-  const handleRefresh = () => {
-    refetchVideos();
+  const handleRefresh = async () => {
+    toast({
+      title: "Refreshing content",
+      description: "Fetching the latest content from your platforms..."
+    });
+    
+    await Promise.all([refetchContent(), refetchVideos()]);
+    
+    toast({
+      title: "Refresh complete",
+      description: "Your content has been updated"
+    });
   };
   
   return (
@@ -61,23 +72,23 @@ const ContentPage = () => {
         </TabsList>
         
         <TabsContent value="all">
-          <ContentQueue items={content} isLoading={isLoading} />
+          <ContentQueue items={content} isLoading={isLoading} refetch={refetchContent} />
         </TabsContent>
         
         <TabsContent value="pending">
-          <ContentQueue items={pendingContent} isLoading={isLoading} />
+          <ContentQueue items={pendingContent} isLoading={isLoading} refetch={refetchContent} />
         </TabsContent>
         
         <TabsContent value="processing">
-          <ContentQueue items={processingContent} isLoading={isLoading} />
+          <ContentQueue items={processingContent} isLoading={isLoading} refetch={refetchContent} />
         </TabsContent>
         
         <TabsContent value="published">
-          <ContentQueue items={publishedContent} isLoading={isLoading} />
+          <ContentQueue items={publishedContent} isLoading={isLoading} refetch={refetchContent} />
         </TabsContent>
         
         <TabsContent value="failed">
-          <ContentQueue items={failedContent} isLoading={isLoading} />
+          <ContentQueue items={failedContent} isLoading={isLoading} refetch={refetchContent} />
         </TabsContent>
 
         <TabsContent value="tiktok">

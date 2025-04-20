@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { processVideo } from "./video-processor.ts";
@@ -16,6 +15,15 @@ serve(async (req) => {
   }
 
   try {
+    // Check if a specific video ID is provided
+    let specificVideoId: string | undefined;
+    try {
+      const body = await req.json();
+      specificVideoId = body.specificVideoId;
+    } catch (e) {
+      // No body or invalid JSON, proceed with all pending videos
+    }
+
     // Create Supabase client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -23,7 +31,7 @@ serve(async (req) => {
     );
 
     // Get videos from queue that need processing
-    const { data: queuedVideos, error: queueError } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('video_queue')
       .select(`
         *,
@@ -36,15 +44,38 @@ serve(async (req) => {
           target_connection:target_connection_id(*)
         )
       `)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true })
-      .limit(5);
+      .order('created_at', { ascending: true });
+
+    // If a specific video ID is provided, query only that video regardless of status
+    if (specificVideoId) {
+      query = query.eq('id', specificVideoId);
+    } else {
+      // Otherwise, get pending videos only
+      query = query.eq('status', 'pending');
+    }
+
+    // Limit to 5 videos if processing all pending videos
+    if (!specificVideoId) {
+      query = query.limit(5);
+    }
+
+    const { data: queuedVideos, error: queueError } = await query;
 
     if (queueError) {
       throw new Error(`Error fetching video queue: ${queueError.message}`);
     }
 
     console.log(`Found ${queuedVideos.length} videos to process in queue`);
+    
+    if (queuedVideos.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'No videos to process',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     const results = [];
     

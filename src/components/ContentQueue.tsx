@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Content } from "@/types";
 import { Play, Pause, ArrowRight, XCircle, CheckCircle, Clock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/components/ui/use-toast";
 
 const statusIconMap = {
   pending: <Clock className="h-4 w-4 text-yellow-500" />,
@@ -24,14 +26,81 @@ const statusTextMap = {
 interface ContentQueueProps {
   items: Content[];
   isLoading?: boolean;
+  refetch?: () => void;
 }
 
-const ContentQueue = ({ items, isLoading = false }: ContentQueueProps) => {
+const ContentQueue = ({ items, isLoading = false, refetch }: ContentQueueProps) => {
   const [currentFilter, setCurrentFilter] = useState<Content["status"] | "all">("all");
+  const [processingItems, setProcessingItems] = useState<string[]>([]);
   
   const filteredItems = currentFilter === "all" 
     ? items 
     : items.filter(item => item.status === currentFilter);
+
+  const handlePublishNow = async (item: Content) => {
+    try {
+      setProcessingItems(prev => [...prev, item.id]);
+      
+      // Call the edge function to process this specific video
+      const response = await supabase.functions.invoke('process-video', {
+        body: { videoId: item.id }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to publish content");
+      }
+
+      toast({
+        title: "Processing started",
+        description: "Your content is now being processed for publishing",
+      });
+      
+      // Refetch content after successful publish action
+      if (refetch) {
+        refetch();
+      }
+    } catch (error) {
+      console.error("Error publishing content:", error);
+      toast({
+        title: "Publication failed",
+        description: error.message || "There was an error publishing your content",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingItems(prev => prev.filter(id => id !== item.id));
+    }
+  };
+
+  const handlePause = async (item: Content) => {
+    try {
+      // Call the API to pause processing
+      const { error } = await supabase
+        .from('video_queue')
+        .update({ status: 'pending', updated_at: new Date().toISOString() })
+        .eq('id', item.id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Processing paused",
+        description: "Your content has been returned to pending status",
+      });
+      
+      // Refetch content after successful pause action
+      if (refetch) {
+        refetch();
+      }
+    } catch (error) {
+      console.error("Error pausing content:", error);
+      toast({
+        title: "Failed to pause",
+        description: "There was an error pausing your content",
+        variant: "destructive",
+      });
+    }
+  };
 
   const renderStatus = (status: Content["status"]) => {
     const icon = statusIconMap[status];
@@ -174,12 +243,29 @@ const ContentQueue = ({ items, isLoading = false }: ContentQueueProps) => {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       {item.status === "pending" && (
-                        <Button size="sm" variant="outline">
-                          <Play className="h-4 w-4 mr-1" /> Publish Now
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handlePublishNow(item)}
+                          disabled={processingItems.includes(item.id)}
+                        >
+                          {processingItems.includes(item.id) ? (
+                            <span className="flex items-center">
+                              <span className="h-4 w-4 mr-1 animate-spin border-2 border-b-transparent rounded-full" /> Processing...
+                            </span>
+                          ) : (
+                            <>
+                              <Play className="h-4 w-4 mr-1" /> Publish Now
+                            </>
+                          )}
                         </Button>
                       )}
                       {item.status === "processing" && (
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handlePause(item)}
+                        >
                           <Pause className="h-4 w-4 mr-1" /> Pause
                         </Button>
                       )}

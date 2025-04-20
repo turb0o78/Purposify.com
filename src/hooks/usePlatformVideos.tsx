@@ -35,17 +35,38 @@ export const usePlatformVideos = () => {
             description: "Could not load your platform videos. Please try again later.",
             variant: "destructive",
           });
-          throw error;
+          return [];
         }
 
         // Check if videos exist in response
         if (!data?.videos || !Array.isArray(data.videos)) {
           console.warn("No videos found in API response", data);
+          
+          // Return empty array but don't show an error toast for empty results
+          if (data && Object.keys(data).length > 0) {
+            return [];
+          }
+          
+          toast({
+            title: "No videos found",
+            description: "We couldn't find any videos for your connected accounts.",
+          });
           return [];
         }
 
         console.log(`Received ${data.videos.length} platform videos`);
-        return data.videos;
+        
+        // If we have videos, return them
+        if (data.videos.length > 0) {
+          return data.videos;
+        }
+        
+        // If we have no videos but there was no error, show a more informative message
+        toast({
+          title: "No videos found",
+          description: "You don't have any videos on your connected platforms or we couldn't access them.",
+        });
+        return [];
       } catch (error) {
         console.error("Error in usePlatformVideos hook:", error);
         toast({

@@ -17,13 +17,21 @@ serve(async (req) => {
     const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
     
-    if (!code || !state) {
-      throw new Error('Missing code or state')
+    console.log('TikTok callback received with code and state:', { codeExists: !!code, stateExists: !!state })
+    
+    if (!code) {
+      throw new Error('Missing authorization code')
+    }
+    
+    if (!state) {
+      throw new Error('Missing state parameter')
     }
 
     const clientKey = Deno.env.get('TIKTOK_CLIENT_KEY')
     const clientSecret = Deno.env.get('TIKTOK_CLIENT_SECRET')
     const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tiktok-oauth-callback`
+
+    console.log('Exchanging code for access token with redirect URI:', redirectUri)
 
     // Exchange code for access token
     const tokenResponse = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
@@ -41,10 +49,14 @@ serve(async (req) => {
     })
 
     const tokenData = await tokenResponse.json()
-
+    console.log('Token response status:', tokenResponse.status)
+    
     if (!tokenResponse.ok) {
-      throw new Error('Failed to get access token')
+      console.error('Failed to get access token:', tokenData)
+      throw new Error('Failed to get access token: ' + JSON.stringify(tokenData))
     }
+
+    console.log('Successfully obtained access token')
 
     // Get user info
     const userResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
@@ -54,6 +66,14 @@ serve(async (req) => {
     })
 
     const userData = await userResponse.json()
+    console.log('User info response status:', userResponse.status)
+    
+    if (!userResponse.ok) {
+      console.error('Failed to get user info:', userData)
+      throw new Error('Failed to get user info')
+    }
+
+    console.log('Successfully obtained user info')
 
     // Store connection in database
     const supabaseClient = createClient(
@@ -61,18 +81,23 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // Extract user data from the TikTok response (V2 API structure)
+    const userInfo = userData.data.user || {};
+    
     await supabaseClient.from('platform_connections').upsert({
       user_id: state,
       platform: 'tiktok',
-      platform_user_id: userData.user_id,
-      platform_username: userData.display_name,
-      platform_avatar_url: userData.avatar_url,
+      platform_user_id: userInfo.open_id || userInfo.user_id || 'unknown',
+      platform_username: userInfo.display_name || userInfo.nickname || 'TikTok User',
+      platform_avatar_url: userInfo.avatar_url || userInfo.avatar_large_url || null,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
+      expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
     })
 
-    // Redirect back to app - use the app URL instead of relative path
+    console.log('Successfully stored connection in database')
+
+    // Redirect back to app with success parameter
     return new Response(null, {
       status: 302,
       headers: {
@@ -81,6 +106,9 @@ serve(async (req) => {
       },
     })
   } catch (error) {
+    console.error('TikTok OAuth callback error:', error.message)
+    
+    // Redirect back to app with error parameter
     return new Response(null, {
       status: 302,
       headers: {

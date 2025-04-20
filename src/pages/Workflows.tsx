@@ -1,109 +1,164 @@
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { toast } from "@/components/ui/use-toast";
 import { Workflow, Connection } from "@/types";
-import { ArrowRight, ArrowUpDown, Plus } from "lucide-react";
-
-// Mock data for the workflows
-const mockWorkflows: Workflow[] = [
-  {
-    id: "workflow-1",
-    name: "TikTok to YouTube Shorts",
-    sourcePlatform: "tiktok",
-    targetPlatform: "youtube",
-    sourceAccount: "tiktok-1",
-    targetAccount: "youtube-1",
-    isActive: true,
-    rules: [
-      {
-        id: "rule-1",
-        type: "hashtag",
-        operator: "contains",
-        value: "#viral",
-      }
-    ],
-    createdAt: new Date(Date.now() - 864000000), // 10 days ago
-  },
-  {
-    id: "workflow-2",
-    name: "YouTube to TikTok",
-    sourcePlatform: "youtube",
-    targetPlatform: "tiktok",
-    sourceAccount: "youtube-1",
-    targetAccount: "tiktok-1",
-    isActive: true,
-    rules: [
-      {
-        id: "rule-1",
-        type: "duration",
-        operator: "less_than",
-        value: "60",
-      }
-    ],
-    createdAt: new Date(Date.now() - 432000000), // 5 days ago
-  },
-  {
-    id: "workflow-3",
-    name: "TikTok Long Videos",
-    sourcePlatform: "tiktok",
-    targetPlatform: "youtube",
-    sourceAccount: "tiktok-1",
-    targetAccount: "youtube-1",
-    isActive: false,
-    rules: [
-      {
-        id: "rule-1",
-        type: "duration",
-        operator: "greater_than",
-        value: "45",
-      },
-      {
-        id: "rule-2",
-        type: "view_count",
-        operator: "greater_than",
-        value: "1000",
-      }
-    ],
-    createdAt: new Date(Date.now() - 259200000), // 3 days ago
-  },
-];
-
-// Mock data for the connections
-const mockConnections: Connection[] = [
-  {
-    id: "tiktok-1",
-    platform: "tiktok",
-    name: "TikTok Demo",
-    status: "connected",
-    connected_at: new Date(),
-  },
-  {
-    id: "youtube-1",
-    platform: "youtube",
-    name: "YouTube Demo",
-    status: "connected",
-    connected_at: new Date(),
-  },
-];
+import { ArrowRight, ArrowUpDown, Plus, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Workflows = () => {
-  const [workflows, setWorkflows] = useState<Workflow[]>(mockWorkflows);
-  const [connections] = useState<Connection[]>(mockConnections);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  const fetchConnections = async () => {
+    try {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('platform_connections')
+        .select('*')
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
+      
+      if (data) {
+        setConnections(data.map(conn => ({
+          id: conn.id,
+          platform: conn.platform,
+          name: conn.platform_username || `${conn.platform} Account`,
+          status: 'connected',
+          connected_at: new Date(conn.created_at || ''),
+          avatar: conn.platform_avatar_url
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching connections:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load your connected accounts.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const fetchWorkflows = async () => {
+    try {
+      setIsLoading(true);
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('workflows')
+        .select('*')
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
+      
+      if (data) {
+        // Transform Supabase data to match our Workflow type
+        const transformedWorkflows: Workflow[] = data.map(workflow => ({
+          id: workflow.id,
+          name: workflow.name,
+          sourcePlatform: workflow.source_platform,
+          targetPlatform: workflow.target_platform,
+          sourceAccount: workflow.source_connection_id,
+          targetAccount: workflow.target_connection_id,
+          isActive: workflow.is_active || false,
+          rules: [], // We'll need to add workflow rules functionality later
+          createdAt: new Date(workflow.created_at || new Date())
+        }));
+        
+        setWorkflows(transformedWorkflows);
+      }
+    } catch (error) {
+      console.error('Error fetching workflows:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load your workflows. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const getConnectionName = (id: string) => {
     const connection = connections.find(c => c.id === id);
     return connection?.name || "Unknown Account";
   };
   
-  const toggleWorkflowStatus = (id: string) => {
-    setWorkflows(workflows.map(workflow => 
-      workflow.id === id ? { ...workflow, isActive: !workflow.isActive } : workflow
-    ));
+  const toggleWorkflowStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('workflows')
+        .update({ is_active: !currentStatus })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      // Update local state to reflect the change
+      setWorkflows(workflows.map(workflow => 
+        workflow.id === id ? { ...workflow, isActive: !currentStatus } : workflow
+      ));
+      
+      toast({
+        title: "Success",
+        description: `Workflow ${!currentStatus ? 'activated' : 'deactivated'} successfully.`
+      });
+    } catch (error) {
+      console.error('Error updating workflow status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update workflow status. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
+  
+  const handleEditWorkflow = (id: string) => {
+    // For now, just navigate to the edit page (we'll implement this later)
+    navigate(`/workflows/edit/${id}`);
+  };
+  
+  const handleDeleteWorkflow = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('workflows')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      // Remove the workflow from local state
+      setWorkflows(workflows.filter(workflow => workflow.id !== id));
+      
+      toast({
+        title: "Success",
+        description: "Workflow deleted successfully."
+      });
+    } catch (error) {
+      console.error('Error deleting workflow:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete workflow. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  useEffect(() => {
+    if (user) {
+      fetchConnections();
+      fetchWorkflows();
+    }
+  }, [user]);
   
   return (
     <div className="container mx-auto py-6">
@@ -124,7 +179,11 @@ const Workflows = () => {
         </div>
       </div>
       
-      {workflows.length === 0 ? (
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : workflows.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <h3 className="text-xl font-semibold mb-2">No workflows found</h3>
@@ -145,7 +204,7 @@ const Workflows = () => {
             <Card key={workflow.id} className="overflow-hidden">
               <div className="flex items-center justify-between p-6 border-b">
                 <div className="flex items-center gap-4">
-                  <div className={`p-2 rounded-lg ${workflow.sourcePlatform === "tiktok" ? "platform-tiktok" : "platform-youtube"}`}>
+                  <div className={`p-2 rounded-lg ${workflow.sourcePlatform === "tiktok" ? "bg-black" : "bg-red-600"}`}>
                     {workflow.sourcePlatform === "tiktok" ? (
                       <svg viewBox="0 0 24 24" className="h-6 w-6 text-white">
                         <path
@@ -178,7 +237,7 @@ const Workflows = () => {
                   </Badge>
                   <Switch 
                     checked={workflow.isActive}
-                    onCheckedChange={() => toggleWorkflowStatus(workflow.id)}
+                    onCheckedChange={() => toggleWorkflowStatus(workflow.id, workflow.isActive)}
                   />
                 </div>
               </div>
@@ -224,8 +283,19 @@ const Workflows = () => {
                 </div>
                 
                 <div className="p-6 flex justify-end gap-3 border-t">
-                  <Button variant="outline">Edit Workflow</Button>
-                  <Button variant="destructive" className="bg-red-500 hover:bg-red-600">Delete</Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => handleEditWorkflow(workflow.id)}
+                  >
+                    Edit Workflow
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    className="bg-red-500 hover:bg-red-600"
+                    onClick={() => handleDeleteWorkflow(workflow.id)}
+                  >
+                    Delete
+                  </Button>
                 </div>
               </CardContent>
             </Card>

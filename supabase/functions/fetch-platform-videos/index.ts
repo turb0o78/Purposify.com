@@ -54,13 +54,19 @@ serve(async (req) => {
       console.log(`Found TikTok connection for user: ${tiktokConnection.platform_username || 'Unknown'}`);
       try {
         console.log('Fetching TikTok videos with access token');
+        
+        // Using the correct endpoint for TikTok API v2
         const tiktokResponse = await fetch(
-          `https://open.tiktokapis.com/v2/video/list/?fields=id,title,video_description,duration,thumbnail_uri,create_time`,
+          'https://open.tiktokapis.com/v2/video/list/',
           {
+            method: 'POST',
             headers: {
               'Authorization': `Bearer ${tiktokConnection.access_token}`,
               'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({
+              fields: ["id", "title", "video_description", "duration", "thumbnail_url", "create_time"]
+            })
           }
         );
 
@@ -75,13 +81,13 @@ serve(async (req) => {
               platform: 'tiktok',
               title: video.title || 'Untitled TikTok Video',
               description: video.video_description,
-              thumbnail: video.thumbnail_uri,
+              thumbnail: video.thumbnail_url,
               duration: video.duration,
               createdAt: new Date(video.create_time * 1000),
             }));
             videos.push(...tiktokVideos);
           } else {
-            console.log('No videos found in TikTok response or invalid response format');
+            console.log('No videos found in TikTok response or invalid response format:', JSON.stringify(tiktokData));
           }
         } else {
           const errorText = await tiktokResponse.text();

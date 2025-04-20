@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 
@@ -97,15 +98,16 @@ serve(async (req) => {
 
     console.log('Successfully obtained access token');
 
+    // Modified this section to properly fetch user data
     let username = null;
     let avatarUrl = null;
     let platformUserId = tokenData.open_id || 'unknown';
 
     // Now fetch additional user profile information using the access token
-    console.log('Fetching TikTok user profile information...');
+    console.log('Fetching TikTok user profile information with access token:', tokenData.access_token.substring(0, 10) + '...');
     
     try {
-      const userInfoResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
+      const userInfoResponse = await fetch('https://open.tiktokapis.com/v2/user/info/?fields=display_name,avatar_url,open_id,username', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`,
@@ -113,25 +115,28 @@ serve(async (req) => {
         }
       });
       
-      const userInfoResponseText = await userInfoResponse.text();
-      console.log('Raw user info response:', userInfoResponseText);
+      if (!userInfoResponse.ok) {
+        const errorText = await userInfoResponse.text();
+        console.error(`TikTok user info API error: Status ${userInfoResponse.status}`, errorText);
+        throw new Error(`Failed to get user info: ${errorText}`);
+      }
       
-      try {
-        const userInfo = JSON.parse(userInfoResponseText);
-        console.log('User info response JSON:', JSON.stringify(userInfo));
-        
-        if (userInfoResponse.ok && userInfo.data && userInfo.data.user) {
-          username = userInfo.data.user.display_name || userInfo.data.user.username || null;
-          avatarUrl = userInfo.data.user.avatar_url || null;
-          console.log(`Found user profile: ${username}, avatar: ${avatarUrl ? 'present' : 'missing'}`);
-        } else {
-          console.warn('Could not retrieve detailed user info, response was not successful', userInfo);
-        }
-      } catch (parseError) {
-        console.error('Failed to parse user info response:', parseError);
+      const userInfoData = await userInfoResponse.json();
+      console.log('User info response data:', JSON.stringify(userInfoData));
+      
+      if (userInfoData.data && userInfoData.data.user) {
+        username = userInfoData.data.user.display_name || userInfoData.data.user.username || null;
+        avatarUrl = userInfoData.data.user.avatar_url || null;
+        platformUserId = userInfoData.data.user.open_id || platformUserId;
+        console.log(`Found user profile: ${username}, avatar: ${avatarUrl ? 'present' : 'missing'}, ID: ${platformUserId}`);
+      } else {
+        console.warn('Could not retrieve detailed user info from response:', userInfoData);
+        throw new Error('Invalid user info response format');
       }
     } catch (userInfoError) {
       console.error('Error fetching user info:', userInfoError);
+      // If we fail to get user info, we'll continue with the connection but log the error
+      // Don't rethrow - we'll use default values if needed
     }
     
     if (!username) {
@@ -187,7 +192,7 @@ serve(async (req) => {
           throw new Error('Failed to update connection data');
         }
         
-        console.log('Successfully updated existing connection in database');
+        console.log('Successfully updated existing connection in database with username:', username);
       } else {
         console.log('Creating new connection for user:', userId);
         const { error: insertError } = await supabaseClient
@@ -209,7 +214,7 @@ serve(async (req) => {
           throw new Error('Failed to create connection data');
         }
         
-        console.log('Successfully created new connection in database');
+        console.log('Successfully created new connection in database with username:', username);
       }
     } catch (dbError) {
       console.error('Error storing connection in database:', dbError);

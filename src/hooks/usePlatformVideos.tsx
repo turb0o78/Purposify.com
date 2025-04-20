@@ -25,6 +25,7 @@ export const usePlatformVideos = () => {
           return [];
         }
         
+        console.log('Fetching platform videos...');
         const { data, error } = await supabase.functions.invoke('fetch-platform-videos');
         
         if (error) {
@@ -39,13 +40,19 @@ export const usePlatformVideos = () => {
 
         // Check if videos exist in response
         if (!data?.videos || !Array.isArray(data.videos)) {
-          console.warn("No videos found in API response");
+          console.warn("No videos found in API response", data);
           return [];
         }
 
+        console.log(`Received ${data.videos.length} platform videos`);
         return data.videos;
       } catch (error) {
         console.error("Error in usePlatformVideos hook:", error);
+        toast({
+          title: "Error loading videos",
+          description: "There was an error loading your videos. Please refresh and try again.",
+          variant: "destructive",
+        });
         return [];
       }
     },

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -25,7 +24,7 @@ interface NavLink {
 }
 
 const Navbar = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut: authSignOut } = useAuth();
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -63,7 +62,6 @@ const Navbar = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Check if current route is active
   const isActive = (path: string) => {
     if (path === "/dashboard" && location.pathname === "/dashboard") {
       return true;
@@ -73,7 +71,7 @@ const Navbar = () => {
 
   const handleSignOut = async () => {
     try {
-      await signOut();
+      await authSignOut?.();
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -88,7 +86,6 @@ const Navbar = () => {
           </Link>
         </div>
 
-        {/* Desktop Navigation */}
         {!isMobile && (
           <div className="hidden md:flex items-center space-x-1">
             {navLinks.map((link) => (
@@ -105,7 +102,6 @@ const Navbar = () => {
           </div>
         )}
 
-        {/* User Menu */}
         <div className="flex items-center">
           <DropdownMenu>
             <Tooltip>

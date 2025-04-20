@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -16,11 +15,13 @@ interface RepublishedVideo {
   target_platform: "tiktok" | "youtube";
   source_video_id: string;
   target_video_id: string;
-  title: string;
-  description: string;
+  title: string | null;
+  description: string | null;
   status: "pending" | "published" | "failed";
   created_at: string;
-  workflow_name?: string;
+  workflow?: {
+    name: string;
+  };
 }
 
 export default function RepublishedContent() {
@@ -38,17 +39,14 @@ export default function RepublishedContent() {
         .from('republished_content')
         .select(`
           *,
-          workflow:workflow_id(name)
+          workflow:workflows!inner(name)
         `)
         .order('created_at', { ascending: false });
         
       if (republishedError) throw republishedError;
       
       if (republishedData) {
-        setVideos(republishedData.map(video => ({
-          ...video,
-          workflow_name: video.workflow?.name
-        })));
+        setVideos(republishedData as RepublishedVideo[]);
       }
     } catch (error) {
       console.error('Error fetching republished content:', error);
@@ -236,7 +234,7 @@ export default function RepublishedContent() {
                     </Badge>
                     
                     <span className="text-muted-foreground">
-                      Workflow: {video.workflow_name || "Workflow inconnu"}
+                      Workflow: {video.workflow?.name || "Workflow inconnu"}
                     </span>
                     
                     <span className="text-muted-foreground">

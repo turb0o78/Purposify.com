@@ -54,6 +54,141 @@ export type Database = {
         }
         Relationships: []
       }
+      processed_videos: {
+        Row: {
+          id: string
+          platform_video_id: string
+          processed_at: string
+          source_platform: string
+          workflow_id: string
+        }
+        Insert: {
+          id?: string
+          platform_video_id: string
+          processed_at?: string
+          source_platform: string
+          workflow_id: string
+        }
+        Update: {
+          id?: string
+          platform_video_id?: string
+          processed_at?: string
+          source_platform?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processed_videos_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      republished_content: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          source_platform: string
+          source_video_id: string
+          status: string
+          target_platform: string
+          target_video_id: string
+          title: string | null
+          workflow_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          source_platform: string
+          source_video_id: string
+          status?: string
+          target_platform: string
+          target_video_id: string
+          title?: string | null
+          workflow_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          source_platform?: string
+          source_video_id?: string
+          status?: string
+          target_platform?: string
+          target_video_id?: string
+          title?: string | null
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "republished_content_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_queue: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration: number | null
+          error_message: string | null
+          id: string
+          platform_video_id: string
+          source_platform: string
+          status: string
+          target_platform_id: string | null
+          thumbnail: string | null
+          title: string | null
+          updated_at: string
+          workflow_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration?: number | null
+          error_message?: string | null
+          id?: string
+          platform_video_id: string
+          source_platform: string
+          status?: string
+          target_platform_id?: string | null
+          thumbnail?: string | null
+          title?: string | null
+          updated_at?: string
+          workflow_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration?: number | null
+          error_message?: string | null
+          id?: string
+          platform_video_id?: string
+          source_platform?: string
+          status?: string
+          target_platform_id?: string | null
+          thumbnail?: string | null
+          title?: string | null
+          updated_at?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_queue_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workflows: {
         Row: {
           created_at: string | null

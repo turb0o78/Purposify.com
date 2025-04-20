@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardStats } from "@/types";
@@ -19,33 +20,33 @@ interface ContentAnalyticsProps {
 
 const ContentAnalytics = ({ stats, isLoading = false }: ContentAnalyticsProps) => {
   const chartData = [
-    { name: "Published", value: stats.month.published, color: "#10b981" },
-    { name: "Pending", value: stats.month.pending, color: "#eab308" },
-    { name: "Failed", value: stats.month.failed, color: "#ef4444" },
+    { name: "Published", value: stats.published, color: "#10b981" },
+    { name: "Pending", value: stats.pending, color: "#eab308" },
+    { name: "Failed", value: stats.failed, color: "#ef4444" },
   ];
 
   const statCards = [
     { 
       title: "Total Repurposed", 
-      value: stats.month.totalRepurposed,
+      value: stats.totalRepurposed,
       change: "+12%",
       isPositive: true
     },
     { 
       title: "Published", 
-      value: stats.month.published,
+      value: stats.published,
       change: "+8%",
       isPositive: true
     },
     { 
       title: "Pending", 
-      value: stats.month.pending,
+      value: stats.pending,
       change: "-3%",
       isPositive: false
     },
     { 
       title: "Failed", 
-      value: stats.month.failed,
+      value: stats.failed,
       change: "-5%",
       isPositive: true
     },

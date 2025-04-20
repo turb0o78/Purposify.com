@@ -96,45 +96,11 @@ serve(async (req) => {
 
     console.log('Successfully obtained access token');
 
-    // Get user info using the new access token
+    // Get basic user info without making an API call
+    // We'll store what we have from the token response
     try {
-      // IMPORTANT: The fields parameter is required by TikTok API
-      const userResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
-        method: 'POST', // Changed to POST as per TikTok API v2 requirements
-        headers: {
-          'Authorization': `Bearer ${tokenData.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fields: ['open_id', 'union_id', 'avatar_url', 'avatar_url_100', 'avatar_url_200', 
-                  'avatar_large_url', 'display_name', 'bio_description', 'profile_deep_link', 'is_verified']
-        }),
-      });
-
-      // Log raw user response for debugging
-      const userResponseText = await userResponse.text();
-      console.log('Raw user info response:', userResponseText);
-      
-      let userData;
-      try {
-        userData = JSON.parse(userResponseText);
-        console.log('User info response status:', userResponse.status);
-        
-        if (!userResponse.ok) {
-          console.error('Failed to get user info:', userData);
-          throw new Error(`Failed to get user info: ${JSON.stringify(userData)}`);
-        }
-      } catch (parseError) {
-        console.error('Failed to parse user response:', parseError);
-        throw new Error(`Failed to parse user response: ${userResponseText.substring(0, 100)}...`);
-      }
-
-      console.log('Successfully obtained user info', userData);
-
-      // Extract user data from the TikTok response (V2 API structure)
-      const userInfo = userData.data?.user || {};
-      
-      // Store connection in database
+      // Store connection in database with minimal information
+      // TikTok API v2 returns user open_id in the token response
       const supabaseClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -143,9 +109,9 @@ serve(async (req) => {
       await supabaseClient.from('platform_connections').upsert({
         user_id: userId,
         platform: 'tiktok',
-        platform_user_id: userInfo.open_id || 'unknown',
-        platform_username: userInfo.display_name || 'TikTok User',
-        platform_avatar_url: userInfo.avatar_url || userInfo.avatar_large_url || null,
+        platform_user_id: tokenData.open_id || 'unknown',
+        platform_username: 'TikTok User', // Default name since we can't fetch it
+        platform_avatar_url: null,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
         expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
@@ -153,7 +119,7 @@ serve(async (req) => {
 
       console.log('Successfully stored connection in database');
     } catch (userInfoError) {
-      console.error('Error getting user info:', userInfoError);
+      console.error('Error storing connection:', userInfoError);
       throw userInfoError;
     }
 

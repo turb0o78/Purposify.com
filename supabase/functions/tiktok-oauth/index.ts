@@ -54,7 +54,8 @@ serve(async (req) => {
     const params = new URLSearchParams()
     params.append('client_key', clientKey)
     params.append('response_type', 'code')
-    params.append('scope', 'user.info.basic,video.list')
+    // Only request minimal scope since we're having issues with user.info.basic
+    params.append('scope', 'user.info.basic,video.list,video.upload')
     params.append('redirect_uri', redirectUri)
     params.append('state', state)
     

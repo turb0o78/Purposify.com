@@ -45,10 +45,18 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-purple to-brand-blue p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-purple/80 to-brand-blue/80 p-4 relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-10" />
+      <div className="absolute inset-0 backdrop-blur-3xl" />
+      
+      {/* Floating orbs decoration */}
+      <div className="absolute top-20 left-20 w-64 h-64 bg-brand-purple/20 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute bottom-20 right-20 w-64 h-64 bg-brand-blue/20 rounded-full blur-3xl animate-pulse" />
+      
+      <Card className="w-full max-w-md relative backdrop-blur-lg bg-white/90 border border-white/20 shadow-2xl">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-brand-purple to-brand-blue bg-clip-text text-transparent">
             {isLogin ? "Welcome back" : "Create an account"}
           </CardTitle>
           <CardDescription>
@@ -68,6 +76,7 @@ const Auth = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="backdrop-blur-sm bg-white/50 border-white/20"
               />
             </div>
             <div className="space-y-2">
@@ -79,7 +88,7 @@ const Auth = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="pr-10"
+                  className="pr-10 backdrop-blur-sm bg-white/50 border-white/20"
                 />
                 <button
                   type="button"
@@ -94,7 +103,7 @@ const Auth = () => {
                 </button>
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full bg-gradient-to-r from-brand-purple to-brand-blue hover:opacity-90 transition-opacity" disabled={loading}>
               {loading ? "Loading..." : isLogin ? "Sign in" : "Sign up"}
             </Button>
           </form>
@@ -102,7 +111,7 @@ const Auth = () => {
             {isLogin ? "Don't have an account? " : "Already have an account? "}
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-brand-purple hover:underline font-medium"
+              className="text-brand-purple hover:text-brand-purple-dark font-medium"
             >
               {isLogin ? "Sign up" : "Sign in"}
             </button>

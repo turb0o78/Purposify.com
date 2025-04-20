@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -71,8 +72,9 @@ const ConnectionCard = ({ connection, onConnect, isConnecting, disabled = false 
   };
 
   const isConnectionExpired = () => {
+    // Safely check if expires_at exists and if the current date is past it
     if (connection.expires_at) {
-      return new Date() > connection.expires_at;
+      return new Date() > new Date(connection.expires_at);
     }
     return false;
   };

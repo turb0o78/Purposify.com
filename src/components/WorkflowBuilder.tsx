@@ -63,14 +63,14 @@ export default function WorkflowBuilder({ connections, onSave, isLoading = false
     <form onSubmit={handleSubmit}>
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Configuration du Workflow</CardTitle>
+          <CardTitle>Workflow Configuration</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
-            <Label htmlFor="workflow-name">Nom du Workflow</Label>
+            <Label htmlFor="workflow-name">Workflow Name</Label>
             <Input
               id="workflow-name"
-              placeholder="Ex: TikTok vers YouTube Shorts"
+              placeholder="Ex: TikTok to YouTube Shorts"
               value={workflowName}
               onChange={(e) => setWorkflowName(e.target.value)}
               className="max-w-md"
@@ -80,7 +80,7 @@ export default function WorkflowBuilder({ connections, onSave, isLoading = false
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
             <div>
-              <Label>Plateforme Source</Label>
+              <Label>Source Platform</Label>
               <Select 
                 value={sourcePlatform} 
                 onValueChange={(value) => {
@@ -93,7 +93,7 @@ export default function WorkflowBuilder({ connections, onSave, isLoading = false
                 }}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sélectionnez une plateforme" />
+                  <SelectValue placeholder="Select a platform" />
                 </SelectTrigger>
                 <SelectContent>
                   {availablePlatforms.map((platform) => (
@@ -110,7 +110,7 @@ export default function WorkflowBuilder({ connections, onSave, isLoading = false
             </div>
             
             <div>
-              <Label>Plateforme Destination</Label>
+              <Label>Target Platform</Label>
               <Select 
                 value={targetPlatform} 
                 onValueChange={(value) => {
@@ -119,7 +119,7 @@ export default function WorkflowBuilder({ connections, onSave, isLoading = false
                 }}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sélectionnez une plateforme" />
+                  <SelectValue placeholder="Select a platform" />
                 </SelectTrigger>
                 <SelectContent>
                   {availablePlatforms
@@ -137,13 +137,13 @@ export default function WorkflowBuilder({ connections, onSave, isLoading = false
           {sourcePlatform && targetPlatform && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
               <div>
-                <Label>Compte Source</Label>
+                <Label>Source Account</Label>
                 <Select 
                   value={sourceAccount} 
                   onValueChange={setSourceAccount}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Sélectionnez un compte" />
+                    <SelectValue placeholder="Select an account" />
                   </SelectTrigger>
                   <SelectContent>
                     {sourceConnections.map((connection) => (
@@ -156,13 +156,13 @@ export default function WorkflowBuilder({ connections, onSave, isLoading = false
               </div>
 
               <div>
-                <Label>Compte Destination</Label>
+                <Label>Target Account</Label>
                 <Select 
                   value={targetAccount} 
                   onValueChange={setTargetAccount}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Sélectionnez un compte" />
+                    <SelectValue placeholder="Select an account" />
                   </SelectTrigger>
                   <SelectContent>
                     {targetConnections.map((connection) => (
@@ -190,7 +190,7 @@ export default function WorkflowBuilder({ connections, onSave, isLoading = false
             !targetAccount
           }
         >
-          {isLoading ? "Création..." : "Créer le Workflow"}
+          {isLoading ? "Creating..." : "Create Workflow"}
         </Button>
       </div>
     </form>

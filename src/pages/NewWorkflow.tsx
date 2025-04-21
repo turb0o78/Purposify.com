@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -129,18 +130,18 @@ export default function NewWorkflow() {
     <div className="container mx-auto py-6">
       <div className="mb-6">
         <Button variant="ghost" className="mb-4" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4 mr-1" /> Retour aux Workflows
+          <ArrowLeft className="h-4 w-4 mr-1" /> Back to Workflows
         </Button>
-        <h1 className="text-3xl font-bold">Créer un Nouveau Workflow</h1>
+        <h1 className="text-3xl font-bold">Create a New Workflow</h1>
         <p className="text-muted-foreground mt-1">
-          Configurez l'automatisation du contenu entre vos plateformes connectées
+          Configure content automation between your connected platforms
         </p>
       </div>
       
       {step === 1 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Choisissez un Type de Workflow</CardTitle>
+            <CardTitle>Choose a Workflow Type</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <WorkflowTypeSelector 
@@ -153,7 +154,7 @@ export default function NewWorkflow() {
                 onClick={handleContinue}
                 disabled={isLoading}
               >
-                Continuer
+                Continue
               </Button>
             </div>
           </CardContent>

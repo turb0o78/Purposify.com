@@ -50,10 +50,6 @@ export const usePlatformVideos = () => {
         if (!data?.videos || !Array.isArray(data.videos)) {
           console.warn("No videos found in API response", data);
           
-          if (data && Object.keys(data).length > 0) {
-            return [];
-          }
-          
           toast({
             title: "No videos found",
             description: "We couldn't find any videos for your connected accounts.",
@@ -63,17 +59,13 @@ export const usePlatformVideos = () => {
 
         console.log(`Received ${data.videos.length} platform videos`);
         
-        // If we have videos, return them
-        if (data.videos.length > 0) {
-          return data.videos;
-        }
+        // Parse the dates properly to ensure they're Date objects
+        const parsedVideos = data.videos.map(video => ({
+          ...video,
+          createdAt: new Date(video.createdAt)
+        }));
         
-        // If we have no videos but there was no error, show a more informative message
-        toast({
-          title: "No videos found",
-          description: "You don't have any videos on your connected platforms or we couldn't access them.",
-        });
-        return [];
+        return parsedVideos;
       } catch (error) {
         console.error("Error in usePlatformVideos hook:", error);
         toast({
@@ -84,7 +76,7 @@ export const usePlatformVideos = () => {
         throw error; // Re-throw to let React Query handle retries
       }
     },
-    retry: 2, // Increase retries from 1 to 2
+    retry: 1, // Only retry once to avoid too many error messages
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });

@@ -11,6 +11,14 @@ export interface PlatformVideo {
   thumbnail?: string;
   duration?: number;
   createdAt: Date;
+  shareUrl?: string;
+  videoUrl?: string;
+  embedHtml?: string;
+  embedLink?: string;
+  viewCount?: number;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
 }
 
 export const usePlatformVideos = () => {

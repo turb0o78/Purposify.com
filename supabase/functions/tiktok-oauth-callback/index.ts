@@ -93,22 +93,26 @@ serve(async (req) => {
       throw new Error('No access token received from TikTok');
     }
 
-    // Fetch user profile information using the /v2/user/info/ endpoint
+    // Fetch user profile information using the correct fields parameter
     let username = null;
+    let displayName = null;
     let avatarUrl = null;
     let platformUserId = tokenData.open_id || null;
     
     try {
       console.log('Fetching TikTok user profile information with the access token');
       
-      // Using the v2 user info endpoint with the correct fields parameter
-      const userInfoResponse = await fetch('https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name,username', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${tokenData.access_token}`,
-          'Content-Type': 'application/json',
+      // Using the correct fields parameter as specified in the documentation
+      const userInfoResponse = await fetch(
+        'https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name,username,bio_description,profile_deep_link,is_verified,follower_count,following_count,likes_count,video_count', 
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${tokenData.access_token}`,
+            'Content-Type': 'application/json',
+          }
         }
-      });
+      );
       
       console.log('User info response status:', userInfoResponse.status);
       
@@ -121,14 +125,14 @@ serve(async (req) => {
           console.log('Parsed user info response:', JSON.stringify(userInfoData));
           
           if (userInfoData && userInfoData.data && userInfoData.data.user) {
-            username = userInfoData.data.user.display_name || 
-                      userInfoData.data.user.username || 
-                      null;
-            
-            avatarUrl = userInfoData.data.user.avatar_url || null;
+            displayName = userInfoData.data.user.display_name || null;
+            username = userInfoData.data.user.username || displayName || null;
+            avatarUrl = userInfoData.data.user.avatar_url || 
+                        userInfoData.data.user.avatar_large_url || 
+                        userInfoData.data.user.avatar_url_100 || null;
             platformUserId = userInfoData.data.user.open_id || tokenData.open_id || null;
             
-            console.log(`Found user profile: name=${username}, avatar=${avatarUrl ? 'present' : 'missing'}, ID=${platformUserId}`);
+            console.log(`Found user profile: display_name=${displayName}, username=${username}, avatar=${avatarUrl ? 'present' : 'missing'}, ID=${platformUserId}`);
           } else {
             console.log('User data not found in expected format:', JSON.stringify(userInfoData));
           }
@@ -141,17 +145,20 @@ serve(async (req) => {
         console.error(`Failed to get user info: Status ${userInfoResponse.status}`, errorText);
       }
       
-      // If we still don't have a username, try with the me endpoint as well
+      // If we still don't have a username, try with the me endpoint as fallback
       if (!username) {
         console.log('Trying alternative me endpoint to get user info');
         
-        const meResponse = await fetch('https://open.tiktokapis.com/v2/user/me/?fields=open_id,union_id,avatar_url,display_name,username', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${tokenData.access_token}`,
-            'Content-Type': 'application/json',
+        const meResponse = await fetch(
+          'https://open.tiktokapis.com/v2/user/me/?fields=open_id,union_id,avatar_url,display_name,username', 
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${tokenData.access_token}`,
+              'Content-Type': 'application/json',
+            }
           }
-        });
+        );
         
         if (meResponse.ok) {
           try {
@@ -159,10 +166,8 @@ serve(async (req) => {
             console.log('Me endpoint response:', JSON.stringify(meData));
             
             if (meData && meData.data && meData.data.user) {
-              username = meData.data.user.display_name || 
-                        meData.data.user.username || 
-                        username;
-              
+              displayName = meData.data.user.display_name || displayName;
+              username = meData.data.user.username || displayName || username;
               avatarUrl = meData.data.user.avatar_url || avatarUrl;
               platformUserId = meData.data.user.open_id || platformUserId;
             }
@@ -174,15 +179,10 @@ serve(async (req) => {
         }
       }
       
-      // Final fallback: if we still don't have a username, use a better default
-      if (!username) {
-        if (tokenData.open_id) {
-          // Just use "TikTok User" without the ID part
-          username = "TikTok User";
-          console.log(`Using fallback username: ${username}`);
-        } else {
-          username = 'TikTok User';
-        }
+      // Final fallback: if we still don't have a username, use a more meaningful default
+      if (!username && !displayName) {
+        username = "TikTok User";
+        console.log(`Using fallback username: ${username}`);
       }
       
       const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -208,9 +208,12 @@ serve(async (req) => {
         throw new Error('Failed to check for existing connection');
       }
 
+      // Create a proper display name for the user
+      const finalDisplayName = displayName || username || "TikTok User";
+      
       // Log what we're about to save to the database
       console.log('About to save TikTok connection with data:', {
-        platform_username: username,
+        platform_username: finalDisplayName,
         platform_user_id: platformUserId,
         platform_avatar_url: avatarUrl ? 'present' : 'missing'
       });
@@ -222,7 +225,7 @@ serve(async (req) => {
             .from('platform_connections')
             .update({
               platform_user_id: platformUserId,
-              platform_username: username,
+              platform_username: finalDisplayName,
               platform_avatar_url: avatarUrl,
               access_token: tokenData.access_token,
               refresh_token: tokenData.refresh_token,
@@ -237,7 +240,7 @@ serve(async (req) => {
             throw new Error('Failed to update connection data');
           }
           
-          console.log('Successfully updated existing connection in database with username:', username);
+          console.log('Successfully updated existing connection in database with username:', finalDisplayName);
         } else {
           console.log('Creating new connection for user:', userId);
           const { error: insertError } = await supabaseClient
@@ -246,7 +249,7 @@ serve(async (req) => {
               user_id: userId,
               platform: 'tiktok',
               platform_user_id: platformUserId,
-              platform_username: username,
+              platform_username: finalDisplayName,
               platform_avatar_url: avatarUrl,
               access_token: tokenData.access_token,
               refresh_token: tokenData.refresh_token,
@@ -259,7 +262,7 @@ serve(async (req) => {
             throw new Error('Failed to create connection data');
           }
           
-          console.log('Successfully created new connection in database with username:', username);
+          console.log('Successfully created new connection in database with username:', finalDisplayName);
         }
 
         // Verify the data was saved correctly

@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ContentQueue from "@/components/ContentQueue";
 import { Content } from "@/types";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, Eye, Heart, MessageSquare, Share2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 const ContentPage = () => {
   const { data: content = [], isLoading, refetch: refetchContent } = useUserContent();
@@ -37,6 +38,146 @@ const ContentPage = () => {
       title: "Refresh complete",
       description: "Your content has been updated"
     });
+  };
+
+  const formatNumber = (num?: number): string => {
+    if (num === undefined) return "-";
+    if (num < 1000) return num.toString();
+    if (num < 1000000) return `${(num / 1000).toFixed(1)}K`;
+    return `${(num / 1000000).toFixed(1)}M`;
+  };
+
+  const VideoCard = ({ video }: { video: typeof platformVideos[0] }) => (
+    <Card key={video.id} className="overflow-hidden">
+      <div className="aspect-video relative">
+        {video.thumbnail ? (
+          <img 
+            src={video.thumbnail} 
+            alt={video.title} 
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-muted flex items-center justify-center">
+            <p className="text-muted-foreground">No thumbnail</p>
+          </div>
+        )}
+        <div className="absolute top-2 right-2">
+          <Badge variant="secondary" className="bg-black/70 text-white">
+            {video.platform === 'tiktok' ? 'TikTok' : 'YouTube'}
+          </Badge>
+        </div>
+        {video.duration && (
+          <div className="absolute bottom-2 right-2">
+            <Badge variant="secondary" className="bg-black/70 text-white">
+              {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
+            </Badge>
+          </div>
+        )}
+      </div>
+      <div className="p-4">
+        <h3 className="font-semibold truncate">{video.title}</h3>
+        {video.description && (
+          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+            {video.description}
+          </p>
+        )}
+        <div className="mt-2 text-sm text-muted-foreground">
+          {new Date(video.createdAt).toLocaleDateString()}
+        </div>
+        
+        {/* Stats section */}
+        <div className="mt-3 flex justify-between text-xs text-muted-foreground">
+          {video.viewCount !== undefined && (
+            <div className="flex items-center">
+              <Eye className="h-3 w-3 mr-1" />
+              <span>{formatNumber(video.viewCount)}</span>
+            </div>
+          )}
+          {video.likeCount !== undefined && (
+            <div className="flex items-center">
+              <Heart className="h-3 w-3 mr-1" />
+              <span>{formatNumber(video.likeCount)}</span>
+            </div>
+          )}
+          {video.commentCount !== undefined && (
+            <div className="flex items-center">
+              <MessageSquare className="h-3 w-3 mr-1" />
+              <span>{formatNumber(video.commentCount)}</span>
+            </div>
+          )}
+          {video.shareCount !== undefined && (
+            <div className="flex items-center">
+              <Share2 className="h-3 w-3 mr-1" />
+              <span>{formatNumber(video.shareCount)}</span>
+            </div>
+          )}
+        </div>
+        
+        {/* Action buttons */}
+        <div className="mt-4 flex space-x-2">
+          {video.shareUrl && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full"
+              onClick={() => window.open(video.shareUrl, '_blank')}
+            >
+              View
+            </Button>
+          )}
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            className="w-full"
+          >
+            Repurpose
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+  
+  const VideoGrid = ({ videos, isLoading, platform }: { videos: typeof platformVideos, isLoading: boolean, platform: 'tiktok' | 'youtube' }) => {
+    if (isLoading) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="overflow-hidden">
+              <div className="aspect-video relative">
+                <Skeleton className="w-full h-full" />
+              </div>
+              <div className="p-4">
+                <Skeleton className="h-4 w-3/4 mb-2" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </Card>
+          ))}
+        </div>
+      );
+    }
+    
+    if (videos.length === 0) {
+      return (
+        <div className="text-center p-6 border rounded-lg bg-muted/20">
+          <h3 className="font-medium mb-2">No {platform === 'tiktok' ? 'TikTok' : 'YouTube'} videos found</h3>
+          <p className="text-muted-foreground mb-4">
+            Make sure your {platform === 'tiktok' ? 'TikTok' : 'YouTube'} account is connected and has videos available.
+          </p>
+          <Button variant="outline" onClick={handleRefresh}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Videos
+          </Button>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {videos.map((video) => (
+          <VideoCard key={video.id} video={video} />
+        ))}
+      </div>
+    );
   };
   
   return (
@@ -92,119 +233,19 @@ const ContentPage = () => {
         </TabsContent>
 
         <TabsContent value="tiktok">
-          {isLoadingVideos ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3].map((i) => (
-                <Card key={i} className="overflow-hidden">
-                  <div className="aspect-video relative">
-                    <Skeleton className="w-full h-full" />
-                  </div>
-                  <div className="p-4">
-                    <Skeleton className="h-4 w-3/4 mb-2" />
-                    <Skeleton className="h-3 w-1/2" />
-                  </div>
-                </Card>
-              ))}
-            </div>
-          ) : tiktokVideos.length === 0 ? (
-            <div className="text-center p-6 border rounded-lg bg-muted/20">
-              <h3 className="font-medium mb-2">No TikTok videos found</h3>
-              <p className="text-muted-foreground mb-4">Make sure your TikTok account is connected and has videos available.</p>
-              <Button variant="outline" onClick={handleRefresh}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Videos
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tiktokVideos.map((video) => (
-                <Card key={video.id} className="overflow-hidden">
-                  <div className="aspect-video relative">
-                    {video.thumbnail ? (
-                      <img 
-                        src={video.thumbnail} 
-                        alt={video.title} 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-muted flex items-center justify-center">
-                        <p className="text-muted-foreground">No thumbnail</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold truncate">{video.title}</h3>
-                    {video.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                        {video.description}
-                      </p>
-                    )}
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      {new Date(video.createdAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
+          <VideoGrid 
+            videos={tiktokVideos}
+            isLoading={isLoadingVideos}
+            platform="tiktok"
+          />
         </TabsContent>
 
         <TabsContent value="youtube">
-          {isLoadingVideos ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3].map((i) => (
-                <Card key={i} className="overflow-hidden">
-                  <div className="aspect-video relative">
-                    <Skeleton className="w-full h-full" />
-                  </div>
-                  <div className="p-4">
-                    <Skeleton className="h-4 w-3/4 mb-2" />
-                    <Skeleton className="h-3 w-1/2" />
-                  </div>
-                </Card>
-              ))}
-            </div>
-          ) : youtubeVideos.length === 0 ? (
-            <div className="text-center p-6 border rounded-lg bg-muted/20">
-              <h3 className="font-medium mb-2">No YouTube videos found</h3>
-              <p className="text-muted-foreground mb-4">Make sure your YouTube account is connected and has videos available.</p>
-              <Button variant="outline" onClick={handleRefresh}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Videos
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {youtubeVideos.map((video) => (
-                <Card key={video.id} className="overflow-hidden">
-                  <div className="aspect-video relative">
-                    {video.thumbnail ? (
-                      <img 
-                        src={video.thumbnail} 
-                        alt={video.title} 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-muted flex items-center justify-center">
-                        <p className="text-muted-foreground">No thumbnail</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold truncate">{video.title}</h3>
-                    {video.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                        {video.description}
-                      </p>
-                    )}
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      {new Date(video.createdAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
+          <VideoGrid 
+            videos={youtubeVideos}
+            isLoading={isLoadingVideos}
+            platform="youtube"
+          />
         </TabsContent>
       </Tabs>
     </div>

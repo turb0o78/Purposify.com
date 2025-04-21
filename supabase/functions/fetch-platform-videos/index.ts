@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -68,7 +69,7 @@ serve(async (req) => {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            fields: ["id", "title", "video_description", "duration", "cover_image_url", "create_time", "share_url", "video_url"]
+            fields: ["id", "title", "video_description", "duration", "cover_image_url", "share_url", "video_url", "embed_html", "embed_link", "create_time", "view_count", "like_count", "comment_count", "share_count"]
           })
         });
         
@@ -92,7 +93,13 @@ serve(async (req) => {
                 duration: video.duration,
                 createdAt: new Date(video.create_time * 1000).toISOString(),
                 shareUrl: video.share_url,
-                videoUrl: video.video_url
+                videoUrl: video.video_url,
+                embedHtml: video.embed_html,
+                embedLink: video.embed_link,
+                viewCount: video.view_count,
+                likeCount: video.like_count,
+                commentCount: video.comment_count,
+                shareCount: video.share_count
               }));
               
               videos.push(...tiktokVideos);
@@ -110,50 +117,128 @@ serve(async (req) => {
                   'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                  fields: ["id", "title", "description", "create_time", "cover_url", "share_url", "video_url", "duration"]
+                  fields: ["id", "title", "description", "create_time", "cover_url", "share_url", "video_url", "duration", "view_count", "like_count", "comment_count", "share_count"]
                 })
               });
               
+              const postsResponseText = await postsResponse.text();
+              console.log('Posts API raw response:', postsResponseText);
+              
               if (postsResponse.ok) {
-                const postsData = await postsResponse.json();
-                console.log('Posts data response:', JSON.stringify(postsData).substring(0, 1000));
-                
-                if (postsData.data && postsData.data.videos && Array.isArray(postsData.data.videos)) {
-                  console.log(`Found ${postsData.data.videos.length} TikTok videos from posts endpoint`);
+                try {
+                  const postsData = JSON.parse(postsResponseText);
+                  console.log('Posts data response:', JSON.stringify(postsData).substring(0, 1000));
                   
-                  const postsVideos = postsData.data.videos.map(video => ({
-                    id: video.id,
-                    platform: 'tiktok',
-                    title: video.title || 'TikTok Video',
-                    description: video.description || '',
-                    thumbnail: video.cover_url,
-                    duration: video.duration,
-                    createdAt: new Date(video.create_time * 1000).toISOString(),
-                    shareUrl: video.share_url,
-                    videoUrl: video.video_url
-                  }));
-                  
-                  videos.push(...postsVideos);
-                } else {
-                  // If still no videos, create mock videos for testing if the username is available
-                  if (tiktokConnection.platform_username) {
-                    console.log('Creating sample videos for testing');
-                    const mockVideos = [
-                      {
-                        id: 'mock-1',
-                        platform: 'tiktok',
-                        title: 'Sample TikTok Video',
-                        description: 'This is a sample video for testing',
-                        thumbnail: 'https://via.placeholder.com/300x500.png?text=TikTok+Sample',
-                        duration: 30,
-                        createdAt: new Date().toISOString(),
+                  if (postsData.data && postsData.data.videos && Array.isArray(postsData.data.videos)) {
+                    console.log(`Found ${postsData.data.videos.length} TikTok videos from posts endpoint`);
+                    
+                    const postsVideos = postsData.data.videos.map(video => ({
+                      id: video.id,
+                      platform: 'tiktok',
+                      title: video.title || 'TikTok Video',
+                      description: video.description || '',
+                      thumbnail: video.cover_url,
+                      duration: video.duration,
+                      createdAt: new Date(video.create_time * 1000).toISOString(),
+                      shareUrl: video.share_url,
+                      videoUrl: video.video_url,
+                      viewCount: video.view_count,
+                      likeCount: video.like_count,
+                      commentCount: video.comment_count,
+                      shareCount: video.share_count
+                    }));
+                    
+                    videos.push(...postsVideos);
+                  } else {
+                    // If still no videos, try one more endpoint that might work
+                    console.log('Trying video query endpoint as final attempt');
+                    
+                    // Try to get the user's TikTok ID first if not already available
+                    let tiktokUserId = tiktokConnection.platform_user_id || null;
+                    
+                    if (!tiktokUserId) {
+                      const userInfoResponse = await fetch(
+                        'https://open.tiktokapis.com/v2/user/info/?fields=open_id', {
+                          method: 'GET',
+                          headers: {
+                            'Authorization': `Bearer ${tiktokConnection.access_token}`,
+                            'Content-Type': 'application/json'
+                          }
+                        }
+                      );
+                      
+                      if (userInfoResponse.ok) {
+                        const userInfo = await userInfoResponse.json();
+                        tiktokUserId = userInfo?.data?.user?.open_id;
                       }
-                    ];
-                    videos.push(...mockVideos);
+                    }
+                    
+                    if (tiktokUserId) {
+                      console.log(`Using user ID ${tiktokUserId} to query videos`);
+                      
+                      // Using a more direct method to query videos - might work for some accounts
+                      const userVideosResponse = await fetch(
+                        'https://open.tiktokapis.com/v2/video/query/', {
+                          method: 'POST',
+                          headers: {
+                            'Authorization': `Bearer ${tiktokConnection.access_token}`,
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({
+                            fields: ["id", "title", "video_description", "duration", "cover_image_url", "share_url", "video_url", "create_time"],
+                            filter: {
+                              user_id: tiktokUserId
+                            }
+                          })
+                        }
+                      );
+                      
+                      if (userVideosResponse.ok) {
+                        const userVideosData = await userVideosResponse.json();
+                        
+                        if (userVideosData.data && userVideosData.data.videos && Array.isArray(userVideosData.data.videos)) {
+                          console.log(`Found ${userVideosData.data.videos.length} TikTok videos from direct query`);
+                          
+                          const queryVideos = userVideosData.data.videos.map(video => ({
+                            id: video.id,
+                            platform: 'tiktok',
+                            title: video.title || 'TikTok Video',
+                            description: video.video_description || '',
+                            thumbnail: video.cover_image_url,
+                            duration: video.duration,
+                            createdAt: new Date(video.create_time * 1000).toISOString(),
+                            shareUrl: video.share_url,
+                            videoUrl: video.video_url
+                          }));
+                          
+                          videos.push(...queryVideos);
+                        }
+                      }
+                    }
+                    
+                    // If still no videos and we have a username, create sample videos
+                    if (videos.length === 0 && tiktokConnection.platform_username) {
+                      console.log('Creating sample videos for testing');
+                      const mockVideos = [
+                        {
+                          id: 'mock-1',
+                          platform: 'tiktok',
+                          title: 'Sample TikTok Video',
+                          description: 'This is a sample video for testing',
+                          thumbnail: 'https://via.placeholder.com/300x500.png?text=TikTok+Sample',
+                          duration: 30,
+                          createdAt: new Date().toISOString(),
+                        }
+                      ];
+                      videos.push(...mockVideos);
+                    }
                   }
+                } catch (parseError) {
+                  console.error('Error parsing posts response:', parseError);
+                  throw new Error(`Failed to parse TikTok posts API response: ${parseError.message}`);
                 }
               } else {
-                console.error('Error from posts endpoint:', await postsResponse.text());
+                console.error('Error from posts endpoint:', postsResponseText);
               }
             }
           } catch (parseError) {

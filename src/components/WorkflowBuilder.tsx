@@ -47,13 +47,13 @@ export default function WorkflowBuilder({ connections, onSave, isLoading = false
   const getPlatformIcon = (platform: Platform) => {
     switch (platform) {
       case "tiktok":
-        return <TiktokIcon className="h-4 w-4 mr-2" />;
+        return <span className="flex items-center"><TiktokIcon /> <span className="ml-2">TikTok</span></span>;
       case "youtube":
-        return <YoutubeIcon className="h-4 w-4 mr-2" />;
+        return <span className="flex items-center"><YoutubeIcon /> <span className="ml-2">YouTube</span></span>;
       case "instagram":
-        return <InstagramIcon className="h-4 w-4 mr-2" />;
+        return <span className="flex items-center"><InstagramIcon /> <span className="ml-2">Instagram</span></span>;
       case "facebook":
-        return <FacebookIcon className="h-4 w-4 mr-2" />;
+        return <span className="flex items-center"><FacebookIcon /> <span className="ml-2">Facebook</span></span>;
       default:
         return null;
     }
@@ -98,10 +98,7 @@ export default function WorkflowBuilder({ connections, onSave, isLoading = false
                 <SelectContent>
                   {availablePlatforms.map((platform) => (
                     <SelectItem key={platform} value={platform}>
-                      <div className="flex items-center">
-                        {getPlatformIcon(platform)}
-                        {platform === 'tiktok' ? 'TikTok' : 'YouTube'}
-                      </div>
+                      {getPlatformIcon(platform)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -129,10 +126,7 @@ export default function WorkflowBuilder({ connections, onSave, isLoading = false
                     .filter(p => p !== sourcePlatform)
                     .map((platform) => (
                       <SelectItem key={platform} value={platform}>
-                        <div className="flex items-center">
-                          {getPlatformIcon(platform)}
-                          {platform === 'tiktok' ? 'TikTok' : 'YouTube'}
-                        </div>
+                        {getPlatformIcon(platform)}
                       </SelectItem>
                     ))}
                 </SelectContent>

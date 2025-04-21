@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -58,7 +57,7 @@ export default function NewWorkflow() {
     try {
       setIsLoading(true);
       
-      // Check if the platform is supported in the database
+      // Check if the platform is supported in the database - only tiktok and youtube are supported
       const isPlatformSupported = (platform: Platform): boolean => {
         return platform === "tiktok" || platform === "youtube";
       };
@@ -75,14 +74,18 @@ export default function NewWorkflow() {
       }
       
       // Now insert with the validated platforms
+      // Explicitly cast the platform types to match the database enum
+      const sourcePlatform = workflowData.sourcePlatform as "tiktok" | "youtube";
+      const targetPlatform = workflowData.targetPlatform as "tiktok" | "youtube";
+      
       const { data, error } = await supabase
         .from('workflows')
         .insert({
           name: workflowData.name,
           workflow_type: workflowType,
           user_id: user?.id,
-          source_platform: workflowData.sourcePlatform,
-          target_platform: workflowData.targetPlatform,
+          source_platform: sourcePlatform,
+          target_platform: targetPlatform,
           source_connection_id: workflowData.sourceAccount,
           target_connection_id: workflowData.targetAccount,
           is_active: true

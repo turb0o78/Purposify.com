@@ -43,14 +43,13 @@ export const usePlatformVideos = () => {
             description: "Could not load your platform videos. Please try again later.",
             variant: "destructive",
           });
-          return [];
+          throw error; // Throw error to trigger retry mechanism
         }
 
         // Check if videos exist in response
         if (!data?.videos || !Array.isArray(data.videos)) {
           console.warn("No videos found in API response", data);
           
-          // Return empty array but don't show an error toast for empty results
           if (data && Object.keys(data).length > 0) {
             return [];
           }
@@ -82,10 +81,11 @@ export const usePlatformVideos = () => {
           description: "There was an error loading your videos. Please refresh and try again.",
           variant: "destructive",
         });
-        return [];
+        throw error; // Re-throw to let React Query handle retries
       }
     },
-    retry: 1,
+    retry: 2, // Increase retries from 1 to 2
     refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };

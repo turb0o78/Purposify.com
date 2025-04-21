@@ -58,8 +58,8 @@ export interface ContentStats {
 }
 
 export interface DashboardStats extends ContentStats {
-  // The structure can remain simple since we're currently using the ContentStats directly
-  // If needed later, we can expand this with the time-based structure:
+  // We're keeping the structure simple as we're using ContentStats directly
+  // The comment about expanding later with time-based structure remains for future reference
   // today: ContentStats;
   // week: ContentStats;
   // month: ContentStats;

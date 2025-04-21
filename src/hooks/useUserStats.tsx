@@ -1,12 +1,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ContentStats } from "@/types";
+import { DashboardStats } from "@/types";
 
 export const useUserStats = () => {
   return useQuery({
     queryKey: ['user-stats'],
-    queryFn: async (): Promise<ContentStats> => {
+    queryFn: async (): Promise<DashboardStats> => {
       const { data, error } = await supabase
         .from('content_statistics')
         .select('*')

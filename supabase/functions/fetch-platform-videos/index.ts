@@ -263,8 +263,10 @@ serve(async (req) => {
       console.log(`Found YouTube connection for user: ${youtubeConnection.platform_username || 'Unknown'}`);
       try {
         console.log('Fetching YouTube videos with access token');
-        const youtubeResponse = await fetch(
-          `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&type=video&forMine=true&key=${Deno.env.get('YOUTUBE_CLIENT_ID')}`,
+        
+        // First, try to get user's channel info
+        const channelsResponse = await fetch(
+          `https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&mine=true`,
           {
             headers: {
               'Authorization': `Bearer ${youtubeConnection.access_token}`,
@@ -273,44 +275,154 @@ serve(async (req) => {
           }
         );
 
-        if (youtubeResponse.ok) {
-          const youtubeData = await youtubeResponse.json();
-          console.log(`YouTube API response: ${JSON.stringify(youtubeData).substring(0, 200)}...`);
+        if (!channelsResponse.ok) {
+          const errorText = await channelsResponse.text();
+          console.error(`Error fetching YouTube channel: Status ${channelsResponse.status} - ${errorText}`);
           
-          if (youtubeData.items && Array.isArray(youtubeData.items)) {
-            console.log(`Found ${youtubeData.items.length} YouTube videos`);
-            const youtubeVideos = youtubeData.items.map(item => ({
-              id: item.id.videoId,
-              platform: 'youtube',
-              title: item.snippet.title,
-              description: item.snippet.description,
-              thumbnail: item.snippet.thumbnails.high?.url,
-              createdAt: new Date(item.snippet.publishedAt),
-            }));
-            videos.push(...youtubeVideos);
-          } else {
-            console.log('No videos found in YouTube response or invalid response format');
-            // Add mock YouTube videos for testing if needed
-            if (!videos.length) {
-              const mockYoutubeVideos = [
-                {
-                  id: 'youtube-mock-1',
-                  platform: 'youtube',
-                  title: 'YouTube Test Video',
-                  description: 'This is a sample YouTube video',
-                  thumbnail: 'https://via.placeholder.com/480x360.png?text=YouTube+Sample',
-                  createdAt: new Date(),
+          // Check if token expired
+          if (channelsResponse.status === 401) {
+            console.log('YouTube token appears to be expired, attempting to refresh');
+            // In the future, implement token refresh logic here
+            throw new Error('YouTube access token expired. Please reconnect your YouTube account.');
+          }
+          
+          throw new Error(`Failed to fetch YouTube channel: ${channelsResponse.status}`);
+        }
+        
+        const channelsData = await channelsResponse.json();
+        console.log(`YouTube channels response: ${JSON.stringify(channelsData).substring(0, 200)}...`);
+        
+        if (channelsData.items && channelsData.items.length > 0) {
+          // Get uploads playlist ID from the first channel
+          const uploadsPlaylistId = channelsData.items[0].contentDetails?.relatedPlaylists?.uploads;
+          
+          if (uploadsPlaylistId) {
+            console.log(`Found uploads playlist ID: ${uploadsPlaylistId}`);
+            
+            // Fetch videos from uploads playlist
+            const playlistItemsResponse = await fetch(
+              `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=${uploadsPlaylistId}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${youtubeConnection.access_token}`,
+                  'Content-Type': 'application/json'
                 }
-              ];
-              videos.push(...mockYoutubeVideos);
+              }
+            );
+            
+            if (!playlistItemsResponse.ok) {
+              const errorText = await playlistItemsResponse.text();
+              console.error(`Error fetching YouTube playlist items: Status ${playlistItemsResponse.status} - ${errorText}`);
+              throw new Error(`Failed to fetch YouTube playlist items: ${playlistItemsResponse.status}`);
             }
+            
+            const playlistItemsData = await playlistItemsResponse.json();
+            console.log(`YouTube playlist items response: ${JSON.stringify(playlistItemsData).substring(0, 200)}...`);
+            
+            if (playlistItemsData.items && Array.isArray(playlistItemsData.items)) {
+              console.log(`Found ${playlistItemsData.items.length} YouTube videos`);
+              
+              // Extract video IDs for detailed video info
+              const videoIds = playlistItemsData.items.map(item => item.contentDetails.videoId).join(',');
+              
+              // Get detailed video information including view counts
+              const videosResponse = await fetch(
+                `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${videoIds}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${youtubeConnection.access_token}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              );
+              
+              if (!videosResponse.ok) {
+                const errorText = await videosResponse.text();
+                console.error(`Error fetching YouTube video details: Status ${videosResponse.status} - ${errorText}`);
+                throw new Error(`Failed to fetch YouTube video details: ${videosResponse.status}`);
+              }
+              
+              const videosData = await videosResponse.json();
+              
+              if (videosData.items && Array.isArray(videosData.items)) {
+                const youtubeVideos = videosData.items.map(item => {
+                  // Helper function to parse ISO 8601 duration to seconds
+                  const parseISO8601Duration = (duration) => {
+                    const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+                    const hours = (match[1] ? parseInt(match[1].slice(0, -1)) : 0);
+                    const minutes = (match[2] ? parseInt(match[2].slice(0, -1)) : 0);
+                    const seconds = (match[3] ? parseInt(match[3].slice(0, -1)) : 0);
+                    return hours * 3600 + minutes * 60 + seconds;
+                  };
+                  
+                  // Get duration in seconds if available
+                  const durationInSeconds = item.contentDetails?.duration ? 
+                    parseISO8601Duration(item.contentDetails.duration) : undefined;
+                  
+                  return {
+                    id: item.id,
+                    platform: 'youtube',
+                    title: item.snippet.title,
+                    description: item.snippet.description,
+                    thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default?.url,
+                    duration: durationInSeconds,
+                    createdAt: new Date(item.snippet.publishedAt).toISOString(),
+                    shareUrl: `https://www.youtube.com/watch?v=${item.id}`,
+                    videoUrl: `https://www.youtube.com/watch?v=${item.id}`,
+                    embedHtml: `<iframe width="560" height="315" src="https://www.youtube.com/embed/${item.id}" frameborder="0" allowfullscreen></iframe>`,
+                    embedLink: `https://www.youtube.com/embed/${item.id}`,
+                    viewCount: parseInt(item.statistics?.viewCount || '0'),
+                    likeCount: parseInt(item.statistics?.likeCount || '0'),
+                    commentCount: parseInt(item.statistics?.commentCount || '0'),
+                  };
+                });
+                
+                videos.push(...youtubeVideos);
+              }
+            }
+          } else {
+            console.log('No uploads playlist found for this YouTube channel');
           }
         } else {
-          const errorText = await youtubeResponse.text();
-          console.error(`Error fetching YouTube videos: Status ${youtubeResponse.status} - ${errorText}`);
+          console.log('No YouTube channels found for this user');
         }
+        
+        // If no videos found, try the search endpoint as fallback
+        if (videos.filter(v => v.platform === 'youtube').length === 0) {
+          console.log('Trying search endpoint as fallback');
+          const searchResponse = await fetch(
+            `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&type=video&forMine=true`,
+            {
+              headers: {
+                'Authorization': `Bearer ${youtubeConnection.access_token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (searchResponse.ok) {
+            const searchData = await searchResponse.json();
+            
+            if (searchData.items && Array.isArray(searchData.items)) {
+              console.log(`Found ${searchData.items.length} YouTube videos via search`);
+              const searchVideos = searchData.items.map(item => ({
+                id: item.id.videoId,
+                platform: 'youtube',
+                title: item.snippet.title,
+                description: item.snippet.description,
+                thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default?.url,
+                createdAt: new Date(item.snippet.publishedAt).toISOString(),
+                shareUrl: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+                videoUrl: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+              }));
+              videos.push(...searchVideos);
+            }
+          }
+        }
+        
       } catch (error) {
         console.error('Error fetching YouTube videos:', error);
+        // Don't throw here to avoid failing the entire request if only YouTube fails
       }
     } else {
       console.log('No YouTube connection found for this user');

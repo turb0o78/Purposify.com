@@ -19,6 +19,7 @@ import RepublishedContent from "./pages/RepublishedContent";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Subscription from "./pages/Subscription";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -49,7 +50,9 @@ const App = () => {
               <Route path="/workflows/edit/:id" element={renderWithNavbar(EditWorkflow)} />
               <Route path="/connections" element={renderWithNavbar(Connections)} />
               <Route path="/republished-content" element={renderWithNavbar(RepublishedContent)} />
-              <Route path="/settings/subscription" element={renderWithNavbar(Subscription)} />
+              <Route path="/settings" element={renderWithNavbar(Settings)}>
+                <Route path="subscription" element={<Subscription />} />
+              </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

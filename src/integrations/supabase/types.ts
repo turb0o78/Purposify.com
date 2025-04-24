@@ -178,6 +178,51 @@ export type Database = {
           },
         ]
       }
+      subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          platform_limits: Json | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_ends_at: string | null
+          trial_ends_at: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          is_active?: boolean
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          platform_limits?: Json | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_ends_at?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          platform_limits?: Json | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_ends_at?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       video_queue: {
         Row: {
           created_at: string
@@ -296,10 +341,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_platform_account_limit: {
+        Args: { user_id: string; platform_name: string }
+        Returns: number
+      }
+      is_subscription_active: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       platform_type: "tiktok" | "youtube"
+      subscription_plan: "trial" | "basic" | "agency"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -416,6 +469,7 @@ export const Constants = {
   public: {
     Enums: {
       platform_type: ["tiktok", "youtube"],
+      subscription_plan: ["trial", "basic", "agency"],
     },
   },
 } as const

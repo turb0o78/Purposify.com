@@ -9,6 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      commissions: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          paid_at: string | null
+          payout_id: string | null
+          payout_method: string | null
+          referred_user_id: string | null
+          status: string
+          stripe_invoice_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          paid_at?: string | null
+          payout_id?: string | null
+          payout_method?: string | null
+          referred_user_id?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          paid_at?: string | null
+          payout_id?: string | null
+          payout_method?: string | null
+          referred_user_id?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       content_statistics: {
         Row: {
           average_likes: number | null
@@ -130,6 +172,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      referrals: {
+        Row: {
+          created_at: string
+          id: string
+          referral_code: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          referral_code: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          referral_code?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      referred_users: {
+        Row: {
+          id: string
+          joined_at: string
+          referral_code: string
+          referred_by: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          referral_code: string
+          referred_by?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          referral_code?: string
+          referred_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       republished_content: {
         Row: {
@@ -347,6 +434,19 @@ export type Database = {
       }
       is_subscription_active: {
         Args: { user_id: string }
+        Returns: boolean
+      }
+      record_commission: {
+        Args: {
+          invoice_id: string
+          customer_id: string
+          amount: number
+          currency: string
+        }
+        Returns: boolean
+      }
+      track_referral: {
+        Args: { user_id: string; referral_code: string }
         Returns: boolean
       }
     }

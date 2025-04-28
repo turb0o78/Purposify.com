@@ -1,21 +1,68 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, UserPlus, Check } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const referralCode = searchParams.get("ref");
+  
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Store referral code in session storage
+  useEffect(() => {
+    if (referralCode) {
+      sessionStorage.setItem("referralCode", referralCode);
+      toast.info(
+        <div className="flex items-center gap-2">
+          <UserPlus className="h-4 w-4" />
+          <span>Référé par un ami</span>
+        </div>,
+        {
+          description: "Vous vous inscrivez avec un code de parrainage",
+        }
+      );
+    }
+  }, [referralCode]);
+
+  const trackReferral = async (userId: string) => {
+    const storedCode = sessionStorage.getItem("referralCode");
+    if (!storedCode) return;
+    
+    try {
+      // Call the track_referral function
+      const { error } = await supabase.rpc('track_referral', {
+        user_id: userId,
+        referral_code: storedCode
+      });
+      
+      if (!error) {
+        toast.success(
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4" />
+            <span>Parrainage enregistré</span>
+          </div>
+        );
+        // Clear the stored code after successful tracking
+        sessionStorage.removeItem("referralCode");
+      } else {
+        console.error("Error tracking referral:", error);
+      }
+    } catch (error) {
+      console.error("Failed to track referral:", error);
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,18 +70,24 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
         navigate("/dashboard");
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         });
         if (error) throw error;
+        
+        // Track referral if user just signed up and we have a userId
+        if (data?.user?.id) {
+          await trackReferral(data.user.id);
+        }
+        
         toast.success("Check your email to complete your registration!");
       }
     } catch (error: any) {
@@ -116,6 +169,14 @@ const Auth = () => {
               {isLogin ? "Sign up" : "Sign in"}
             </button>
           </div>
+          {referralCode && !isLogin && (
+            <div className="mt-4 p-2 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-sm text-green-800 flex items-center">
+                <UserPlus className="h-4 w-4 mr-1" />
+                Signing up with referral: {referralCode}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

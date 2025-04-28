@@ -22,6 +22,7 @@ import Terms from "./pages/Terms";
 import Subscription from "./pages/Subscription";
 import Settings from "./pages/Settings";
 import AccountSettings from "./pages/AccountSettings";
+import Referrals from "./pages/Referrals";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => {
               <Route path="/workflows/edit/:id" element={renderWithNavbar(EditWorkflow)} />
               <Route path="/connections" element={renderWithNavbar(Connections)} />
               <Route path="/republished-content" element={renderWithNavbar(RepublishedContent)} />
+              <Route path="/referrals" element={renderWithNavbar(Referrals)} />
               <Route path="/settings" element={renderWithNavbar(Settings)}>
                 <Route path="subscription" element={<Subscription />} />
               </Route>

@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Settings, User, Package } from "lucide-react";
+import { Settings, User, Package, Users } from "lucide-react";
 
 interface NavLink {
   name: string;
@@ -51,6 +51,11 @@ const Navbar = () => {
     {
       name: "Connections",
       path: "/connections",
+    },
+    {
+      name: "Parrainage",
+      path: "/referrals",
+      icon: <Users className="h-4 w-4 mr-1" />
     },
   ];
 

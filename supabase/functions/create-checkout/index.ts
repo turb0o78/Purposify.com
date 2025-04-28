@@ -61,6 +61,14 @@ serve(async (req) => {
       customerId = customer.id;
     }
 
+    // Store Stripe customer ID in user metadata
+    await supabaseClient.auth.admin.updateUserById(user.id, {
+      user_metadata: {
+        ...user.user_metadata,
+        stripe_customer_id: customerId,
+      },
+    });
+
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,

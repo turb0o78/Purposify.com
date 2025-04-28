@@ -52,15 +52,10 @@ export const useReferralDashboard = () => {
           return { stats: null, referrals: [], commissions: [] };
         }
         
-        // Get referred users
+        // Get referred users with their emails
         const { data: referredUsersData } = await supabase
           .from('referred_users')
-          .select(`
-            id, 
-            user_id,
-            joined_at,
-            auth_users:user_id(email)
-          `)
+          .select('id, user_id, joined_at')
           .eq('referred_by', user.id);
           
         // Get commissions
@@ -94,7 +89,7 @@ export const useReferralDashboard = () => {
         
         const referrals: ReferredUser[] = (referredUsersData || []).map(user => ({
           id: user.id,
-          email: user.auth_users?.email || 'Unknown user',
+          email: user.user_id || 'Unknown user', // Using user_id as a temporary placeholder since we don't have direct access to emails
           joinedAt: new Date(user.joined_at)
         }));
         

@@ -379,25 +379,29 @@ const AccountSettings = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Adresse email</FormLabel>
-                        <FormControl>
-                          <Input {...field} disabled />
-                        </FormControl>
-                        <FormDescription>
-                          Votre adresse email ne peut pas être modifiée.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  {/* Email preferences would go here */}
-                </div>
+                {/* This is where we had the form field that was causing the issue */}
+                {/* We need to wrap it properly in a Form component */}
+                <Form {...form}>
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Adresse email</FormLabel>
+                          <FormControl>
+                            <Input {...field} disabled />
+                          </FormControl>
+                          <FormDescription>
+                            Votre adresse email ne peut pas être modifiée.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {/* Email preferences would go here */}
+                  </div>
+                </Form>
               </CardContent>
             </Card>
           </div>

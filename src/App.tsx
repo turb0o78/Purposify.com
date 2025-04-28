@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,6 +21,7 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Subscription from "./pages/Subscription";
 import Settings from "./pages/Settings";
+import AccountSettings from "./pages/AccountSettings";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +55,7 @@ const App = () => {
               <Route path="/settings" element={renderWithNavbar(Settings)}>
                 <Route path="subscription" element={<Subscription />} />
               </Route>
+              <Route path="/settings/account" element={renderWithNavbar(AccountSettings)} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

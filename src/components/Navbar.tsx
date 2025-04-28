@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Settings, User, Package } from "lucide-react";
 
 interface NavLink {
   name: string;
@@ -150,6 +152,19 @@ const Navbar = () => {
                   <DropdownMenuSeparator />
                 </>
               )}
+              <DropdownMenuItem asChild>
+                <Link to="/settings/account" className="flex items-center gap-2 cursor-pointer">
+                  <User className="h-4 w-4" />
+                  Paramètres du compte
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/settings/subscription" className="flex items-center gap-2 cursor-pointer">
+                  <Package className="h-4 w-4" />
+                  Gérer l'abonnement
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 Log out
               </DropdownMenuItem>

@@ -28,7 +28,7 @@ serve(async (req) => {
       rawUrl: req.url
     })
     
-    // Check for TikTok-returned errors first
+    // Vérifier d'abord les erreurs retournées par TikTok
     if (error) {
       throw new Error(`TikTok authorization error: ${error} - ${errorDescription || 'No description provided'}`)
     }
@@ -41,7 +41,7 @@ serve(async (req) => {
       throw new Error('Missing state parameter')
     }
 
-    // Extract user ID from state (format: userId_csrfToken)
+    // Extraire l'ID utilisateur de l'état (format: userId_csrfToken)
     const userId = state.split('_')[0]
     if (!userId) {
       throw new Error('Invalid state format')
@@ -59,12 +59,12 @@ serve(async (req) => {
       throw new Error('TikTok client secret not configured')
     }
 
-    // Must match exactly what was used in the authorization request
+    // Doit correspondre exactement à ce qui a été utilisé dans la demande d'autorisation
     const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tiktok-oauth-callback`
 
     console.log('Exchanging code for access token with redirect URI:', redirectUri)
 
-    // Exchange code for access token (using v2 API)
+    // Échanger le code contre un jeton d'accès (en utilisant l'API v2)
     const tokenResponse = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
       method: 'POST',
       headers: {
@@ -93,16 +93,16 @@ serve(async (req) => {
       throw new Error('No access token received from TikTok');
     }
 
-    // Store important token information
+    // Stocker les informations importantes du jeton
     const accessToken = tokenData.access_token;
     const refreshToken = tokenData.refresh_token || null;
-    const expiresIn = tokenData.expires_in || 86400; // Default to 24 hours if not provided
+    const expiresIn = tokenData.expires_in || 86400; // Défaut à 24 heures si non fourni
     const scope = tokenData.scope || 'user.info.basic,video.list,video.upload';
     const openId = tokenData.open_id || null;
     
     console.log(`Access token obtained with scopes: ${scope}`);
 
-    // Fetch user profile information - first try with userinfo endpoint
+    // Récupérer les informations de profil utilisateur - d'abord essayer avec le point de terminaison userinfo
     let username = null;
     let displayName = null;
     let avatarUrl = null;
@@ -111,7 +111,7 @@ serve(async (req) => {
     try {
       console.log('Fetching TikTok user profile information with access token');
       
-      // Try the recommended user info endpoint first
+      // Essayez le point de terminaison d'informations utilisateur recommandé en premier
       const userInfoResponse = await fetch(
         'https://open.tiktokapis.com/v2/user/info/', 
         {
@@ -128,7 +128,9 @@ serve(async (req) => {
               "avatar_url_100", 
               "avatar_large_url", 
               "display_name", 
-              "username"
+              "username",
+              "bio_description",
+              "profile_deep_link"
             ]
           })
         }
@@ -143,7 +145,7 @@ serve(async (req) => {
           displayName = user.display_name;
           username = user.username || displayName;
           
-          // Get the best avatar URL available
+          // Obtenez la meilleure URL d'avatar disponible
           avatarUrl = user.avatar_large_url || user.avatar_url_100 || user.avatar_url;
           platformUserId = user.open_id || openId;
           
@@ -154,23 +156,44 @@ serve(async (req) => {
       } else {
         const errorText = await userInfoResponse.text();
         console.error(`Failed to get user info: Status ${userInfoResponse.status}`, errorText);
-      }
-      
-      // If we still don't have user info, try the alternative me endpoint
-      if (!username) {
-        console.log('Trying alternative "me" endpoint');
         
-        const meResponse = await fetch(
-          'https://open.tiktokapis.com/v2/user/me/', 
+        // Si le format de la requête est invalide, essayons une version plus simple
+        const simpleUserInfoResponse = await fetch(
+          'https://open.tiktokapis.com/v2/user/info/', 
           {
-            method: 'POST',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              fields: ["open_id", "union_id", "avatar_url", "display_name", "username"]
-            })
+            }
+          }
+        );
+        
+        if (simpleUserInfoResponse.ok) {
+          const simpleUserInfoData = await simpleUserInfoResponse.json();
+          console.log('Simple user info response:', JSON.stringify(simpleUserInfoData));
+          
+          if (simpleUserInfoData && simpleUserInfoData.data && simpleUserInfoData.data.user) {
+            const user = simpleUserInfoData.data.user;
+            displayName = user.display_name || displayName;
+            username = user.username || displayName;
+            avatarUrl = user.avatar_url || avatarUrl;
+            platformUserId = user.open_id || platformUserId;
+          }
+        }
+      }
+      
+      // Si nous n'avons toujours pas d'informations sur l'utilisateur, essayons le point de terminaison me alternatif
+      if (!username) {
+        console.log('Trying alternative "me" endpoint');
+        
+        // Essayons l'endpoint me V2
+        const meResponse = await fetch(
+          'https://open.tiktokapis.com/v2/user/info/', 
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+            }
           }
         );
         
@@ -191,14 +214,14 @@ serve(async (req) => {
         }
       }
       
-      // Final fallback - use a default name if we couldn't get the username
+      // Dernier recours - utiliser un nom par défaut si nous n'avons pas pu obtenir le nom d'utilisateur
       if (!username && !displayName) {
         username = "TikTok User";
         displayName = "TikTok User";
         console.log(`Using fallback username: ${username}`);
       }
       
-      // Initialize Supabase client
+      // Initialiser le client Supabase
       const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
@@ -209,7 +232,7 @@ serve(async (req) => {
       console.log('Creating Supabase client with URL:', supabaseUrl);
       const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-      // Check if connection already exists
+      // Vérifier si la connexion existe déjà
       const { data: existingConnection, error: fetchError } = await supabaseClient
         .from('platform_connections')
         .select('id')
@@ -222,9 +245,9 @@ serve(async (req) => {
         throw new Error(`Failed to check for existing connection: ${fetchError.message}`);
       }
 
-      // Ensure we have the required fields
+      // S'assurer que nous avons les champs requis
       if (!platformUserId) {
-        platformUserId = openId || `tiktok-${Date.now()}`; // Fallback ID
+        platformUserId = openId || `tiktok-${Date.now()}`; // ID de repli
         console.log(`Using fallback platform user ID: ${platformUserId}`);
       }
       
@@ -239,14 +262,14 @@ serve(async (req) => {
         scopes: scope
       };
       
-      // Log what we're saving to the database
+      // Consigner ce que nous enregistrons dans la base de données
       console.log('Saving TikTok connection with data:', {
         ...connectionData,
         access_token: 'REDACTED',
         refresh_token: refreshToken ? 'REDACTED' : null
       });
       
-      // Update or create the connection
+      // Mettre à jour ou créer la connexion
       try {
         if (existingConnection) {
           console.log('Updating existing connection:', existingConnection.id);
@@ -282,7 +305,7 @@ serve(async (req) => {
           console.log('Successfully created new TikTok connection');
         }
 
-        // Verify the connection was saved correctly
+        // Vérifier que la connexion a été correctement enregistrée
         const { data: verifyConnection, error: verifyError } = await supabaseClient
           .from('platform_connections')
           .select('platform_username, platform_user_id, access_token')
@@ -308,7 +331,7 @@ serve(async (req) => {
       throw userInfoError;
     }
 
-    // Redirect back to app with success parameter
+    // Rediriger vers l'application avec le paramètre de succès
     const redirectUrl = 'https://reel-stream-forge.lovable.app/connections?success=true';
     console.log('Redirecting to:', redirectUrl);
     
@@ -322,7 +345,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('TikTok OAuth callback error:', error.message);
     
-    // Redirect back to app with error parameter
+    // Rediriger vers l'application avec le paramètre d'erreur
     const errorUrl = 'https://reel-stream-forge.lovable.app/connections?error=' + encodeURIComponent(error.message);
     console.log('Redirecting to error URL:', errorUrl);
     

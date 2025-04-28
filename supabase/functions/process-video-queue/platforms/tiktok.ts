@@ -5,7 +5,7 @@ export async function downloadTikTokVideo(videoId: string, accessToken: string):
   try {
     console.log(`Downloading TikTok video with ID: ${videoId}`);
     
-    // First try the video query endpoint with the proper fields parameter
+    // Utiliser l'endpoint v2 pour obtenir des informations sur la vidéo
     const response = await fetch(
       'https://open.tiktokapis.com/v2/video/query/',
       {
@@ -15,7 +15,7 @@ export async function downloadTikTokVideo(videoId: string, accessToken: string):
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          fields: ["video_description", "video_url"],
+          fields: ["video_description", "video_url", "title", "duration", "cover_image_url"],
           video_ids: [videoId]
         })
       }
@@ -25,28 +25,34 @@ export async function downloadTikTokVideo(videoId: string, accessToken: string):
       const errorText = await response.text();
       console.error(`TikTok API error (video query): ${response.status} ${errorText}`);
       
-      // Fallback to older API format
-      const fallbackResponse = await fetch(
-        `https://open.tiktokapis.com/v2/video/query/?fields=video_description,video_url&video_ids=${videoId}`,
+      // Tentative avec un autre endpoint si le premier échoue
+      const alternativeResponse = await fetch(
+        'https://open.tiktokapis.com/v2/post/info/',
         {
+          method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
-          }
+          },
+          body: JSON.stringify({
+            post_id: videoId,
+            fields: ["video_url", "description", "title"]
+          })
         }
       );
       
-      if (!fallbackResponse.ok) {
-        const fallbackErrorText = await fallbackResponse.text();
-        throw new Error(`TikTok API error (fallback): ${fallbackResponse.status} ${fallbackErrorText}`);
+      if (!alternativeResponse.ok) {
+        const alternativeErrorText = await alternativeResponse.text();
+        console.error(`TikTok API error (post info): ${alternativeResponse.status} ${alternativeErrorText}`);
+        throw new Error(`Could not download TikTok video: ${response.status} ${errorText}`);
       }
       
-      const fallbackData = await fallbackResponse.json();
-      console.log('TikTok fallback response:', JSON.stringify(fallbackData).substring(0, 500));
+      const alternativeData = await alternativeResponse.json();
+      console.log('TikTok alternative response:', JSON.stringify(alternativeData).substring(0, 500));
       
-      const videoUrl = fallbackData?.data?.videos?.[0]?.video_url;
+      const videoUrl = alternativeData?.data?.video_url;
       if (!videoUrl) {
-        throw new Error('Could not get video URL from TikTok fallback API');
+        throw new Error('Could not get video URL from TikTok alternative API');
       }
       
       return { success: true, videoUrl };
@@ -77,7 +83,7 @@ export async function uploadToTikTok(
   try {
     console.log('Initiating TikTok direct upload');
     
-    // Step 1: Initialize the upload
+    // Étape 1: Initialiser le téléchargement
     const initResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
       method: 'POST',
       headers: {
@@ -87,7 +93,7 @@ export async function uploadToTikTok(
       body: JSON.stringify({
         post_info: {
           title,
-          privacy_level: 'SELF_ONLY', // Start as private to avoid errors
+          privacy_level: 'SELF_ONLY', // Commencer comme privé pour éviter les erreurs
           disable_duet: false,
           disable_comment: false,
           disable_stitch: false,
@@ -109,7 +115,7 @@ export async function uploadToTikTok(
       throw new Error('Invalid response from TikTok initialization endpoint');
     }
 
-    // Step 2: Download the video file from the source URL
+    // Étape 2: Télécharger le fichier vidéo depuis l'URL source
     console.log('Downloading video from source URL:', videoUrl.substring(0, 50));
     const videoResponse = await fetch(videoUrl);
     
@@ -120,7 +126,7 @@ export async function uploadToTikTok(
     const videoBuffer = await videoResponse.arrayBuffer();
     console.log(`Downloaded video buffer size: ${videoBuffer.byteLength} bytes`);
 
-    // Step 3: Upload the video to TikTok's storage
+    // Étape 3: Télécharger la vidéo vers le stockage TikTok
     console.log('Uploading video to TikTok:', initData.data.upload_url.substring(0, 50));
     const uploadResponse = await fetch(initData.data.upload_url, {
       method: 'PUT',
@@ -138,7 +144,7 @@ export async function uploadToTikTok(
 
     console.log('Video uploaded to TikTok successfully, now finalizing...');
 
-    // Step 4: Complete the upload process
+    // Étape 4: Finaliser le processus de téléchargement
     const completeResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/video/complete/', {
       method: 'POST',
       headers: {
@@ -149,8 +155,8 @@ export async function uploadToTikTok(
         video_id: initData.data.video_id,
         post_info: {
           title,
-          description, // Include description in completion step
-          privacy_level: 'SELF_ONLY', // Start as private so creator can review
+          description, // Inclure la description dans l'étape de finalisation
+          privacy_level: 'SELF_ONLY', // Commencer comme privé pour que le créateur puisse vérifier
           disable_duet: false,
           disable_comment: false,
           disable_stitch: false
@@ -171,8 +177,8 @@ export async function uploadToTikTok(
       throw new Error('Invalid response from TikTok completion endpoint');
     }
 
-    // Construct the TikTok video URL using the username from platform connections
-    // This is a placeholder - the actual URL will need the username from the platform connection
+    // Construire l'URL de la vidéo TikTok en utilisant le nom d'utilisateur des connexions de plate-forme
+    // Ceci est un espace réservé - l'URL réelle aura besoin du nom d'utilisateur de la connexion de plate-forme
     return {
       success: true,
       videoId: completeData.data.video_id,

@@ -28,7 +28,7 @@ export const usePlatformVideos = () => {
       try {
         console.log('Starting platform videos fetch...');
         
-        // First check if user is authenticated
+        // Vérifier d'abord si l'utilisateur est authentifié
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           console.log('No authenticated session found');
@@ -37,15 +37,19 @@ export const usePlatformVideos = () => {
         
         console.log('Authenticated session found, invoking edge function...');
         
-        // Add a timeout to the request
+        // Ajouter un délai d'attente à la demande
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timed out')), 30000); // 30 seconds timeout
+          setTimeout(() => reject(new Error('Request timed out')), 30000); // 30 secondes de délai
         });
         
-        // Create the actual request promise
-        const fetchPromise = supabase.functions.invoke('fetch-platform-videos');
+        // Créer la promesse de requête réelle
+        const fetchPromise = supabase.functions.invoke('fetch-platform-videos', {
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
         
-        // Race the fetch against the timeout
+        // Faire la course entre la récupération et le délai d'attente
         const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
           .then(result => result as typeof fetchPromise extends Promise<infer T> ? T : never)
           .catch(err => {
@@ -56,7 +60,7 @@ export const usePlatformVideos = () => {
         if (error) {
           console.error("Error fetching platform videos:", error);
           
-          // Provide more informative error messages
+          // Fournir des messages d'erreur plus informatifs
           const errorMessage = typeof error === 'object' && error !== null && 'message' in error
             ? error.message
             : 'Could not load your platform videos. Please try again later.';
@@ -67,12 +71,10 @@ export const usePlatformVideos = () => {
             variant: "destructive",
           });
           
-          // Return mock data for development purposes
-          console.log('Returning mock videos as fallback');
-          return createMockVideos();
+          return [];
         }
 
-        // Check if videos exist in response
+        // Vérifier si les vidéos existent dans la réponse
         if (!data?.videos || !Array.isArray(data.videos)) {
           console.warn("No videos found in API response", data);
           
@@ -81,12 +83,12 @@ export const usePlatformVideos = () => {
             description: "We couldn't find any videos for your connected accounts.",
           });
           
-          return createMockVideos();
+          return [];
         }
 
         console.log(`Received ${data.videos.length} platform videos`);
         
-        // Parse the dates properly to ensure they're Date objects
+        // Analyser correctement les dates pour s'assurer qu'elles sont des objets Date
         const parsedVideos = data.videos.map(video => ({
           ...video,
           createdAt: new Date(video.createdAt)
@@ -102,83 +104,13 @@ export const usePlatformVideos = () => {
           variant: "destructive",
         });
         
-        // Return mock data as fallback for development
-        return createMockVideos();
+        // Retourner un tableau vide en cas d'erreur
+        return [];
       }
     },
-    retry: 2, // Retry twice to handle transient errors
+    retry: 2, // Réessayer deux fois pour gérer les erreurs transitoires
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchInterval: 10 * 60 * 1000, // Refresh every 10 minutes
+    refetchInterval: 10 * 60 * 1000, // Rafraîchir toutes les 10 minutes
   });
-};
-
-// Helper function to create mock videos for development/fallback
-const createMockVideos = (): PlatformVideo[] => {
-  console.log('Creating mock videos as fallback');
-  
-  return [
-    // TikTok mock videos
-    {
-      id: 'tiktok-mock-1',
-      platform: 'tiktok',
-      title: 'TikTok Demo Video #1',
-      description: 'This is a sample TikTok video for testing',
-      thumbnail: 'https://via.placeholder.com/300x500.png?text=TikTok+Sample+1',
-      duration: 30,
-      createdAt: new Date(),
-      shareUrl: 'https://tiktok.com/@user/video/mock1',
-      videoUrl: 'https://tiktok.com/@user/video/mock1',
-      viewCount: 1250,
-      likeCount: 350,
-      commentCount: 48,
-      shareCount: 12
-    },
-    {
-      id: 'tiktok-mock-2',
-      platform: 'tiktok',
-      title: 'TikTok Demo Video #2',
-      description: 'Another sample TikTok video for testing',
-      thumbnail: 'https://via.placeholder.com/300x500.png?text=TikTok+Sample+2',
-      duration: 45,
-      createdAt: new Date(Date.now() - 86400000),
-      shareUrl: 'https://tiktok.com/@user/video/mock2',
-      videoUrl: 'https://tiktok.com/@user/video/mock2',
-      viewCount: 2300,
-      likeCount: 540,
-      commentCount: 62,
-      shareCount: 21
-    },
-    // YouTube mock videos
-    {
-      id: 'youtube-mock-1',
-      platform: 'youtube',
-      title: 'YouTube Demo Video #1',
-      description: 'This is a sample YouTube video for testing',
-      thumbnail: 'https://via.placeholder.com/480x360.png?text=YouTube+Sample+1',
-      duration: 240,
-      createdAt: new Date(),
-      shareUrl: 'https://youtube.com/watch?v=mock1',
-      videoUrl: 'https://youtube.com/watch?v=mock1',
-      embedLink: 'https://www.youtube.com/embed/mock1',
-      viewCount: 15000,
-      likeCount: 2500,
-      commentCount: 320
-    },
-    {
-      id: 'youtube-mock-2',
-      platform: 'youtube',
-      title: 'YouTube Demo Video #2',
-      description: 'Another sample YouTube video for testing',
-      thumbnail: 'https://via.placeholder.com/480x360.png?text=YouTube+Sample+2',
-      duration: 360,
-      createdAt: new Date(Date.now() - 172800000),
-      shareUrl: 'https://youtube.com/watch?v=mock2',
-      videoUrl: 'https://youtube.com/watch?v=mock2',
-      embedLink: 'https://www.youtube.com/embed/mock2',
-      viewCount: 28000,
-      likeCount: 3600,
-      commentCount: 450
-    }
-  ];
 };

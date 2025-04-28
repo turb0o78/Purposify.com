@@ -2,6 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { v4 as uuidv4 } from "uuid";
 
 export interface ReferralStats {
   referralCode: string;
@@ -26,6 +27,12 @@ export interface Commission {
   paidAt?: Date;
 }
 
+// Fonction pour générer un code de parrainage unique
+const generateReferralCode = (): string => {
+  // Générer un code court basé sur uuid mais plus facile à lire/copier
+  return uuidv4().substring(0, 8).toUpperCase();
+};
+
 export const useReferralDashboard = () => {
   const { user } = useAuth();
   
@@ -41,15 +48,32 @@ export const useReferralDashboard = () => {
       }
       
       try {
-        // Get referral code
-        const { data: referralData } = await supabase
+        // Get referral code or create one if it doesn't exist
+        let { data: referralData } = await supabase
           .from('referrals')
           .select('referral_code')
           .eq('user_id', user.id)
           .single();
           
+        // Si l'utilisateur n'a pas de code de parrainage, en créer un
         if (!referralData) {
-          return { stats: null, referrals: [], commissions: [] };
+          const referralCode = generateReferralCode();
+          
+          const { data: newReferralData, error: insertError } = await supabase
+            .from('referrals')
+            .insert({ 
+              user_id: user.id, 
+              referral_code: referralCode 
+            })
+            .select('referral_code')
+            .single();
+            
+          if (insertError) {
+            console.error("Error creating referral code:", insertError);
+            throw insertError;
+          }
+          
+          referralData = newReferralData;
         }
         
         // Get referred users with their emails

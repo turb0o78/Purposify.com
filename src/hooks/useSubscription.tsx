@@ -2,6 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface SubscriptionStatus {
   plan: 'trial' | 'basic' | 'agency';
@@ -12,10 +13,13 @@ export interface SubscriptionStatus {
 }
 
 export const useSubscription = () => {
+  const { user } = useAuth();
+  
   return useQuery({
-    queryKey: ['subscription'],
+    queryKey: ['subscription', user?.id],
     queryFn: async (): Promise<SubscriptionStatus> => {
       try {
+        console.log("Checking subscription status for user:", user?.id);
         const { data, error } = await supabase.functions.invoke('check-subscription');
         
         if (error) {
@@ -28,12 +32,17 @@ export const useSubscription = () => {
           throw error;
         }
 
+        console.log("Subscription check result:", data);
         return data;
       } catch (error) {
         console.error("Error in useSubscription hook:", error);
         throw error;
       }
     },
+    enabled: !!user,
     refetchInterval: 60000, // Refresh every minute
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 30000, // Consider data stale after 30 seconds
   });
 };

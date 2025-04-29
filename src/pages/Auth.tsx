@@ -24,6 +24,7 @@ const Auth = () => {
   useEffect(() => {
     if (referralCode) {
       sessionStorage.setItem("referralCode", referralCode);
+      console.log("Referral code stored in session:", referralCode);
       toast.info(
         <div className="flex items-center gap-2">
           <UserPlus className="h-4 w-4" />
@@ -41,11 +42,15 @@ const Auth = () => {
     if (!storedCode) return;
     
     try {
+      console.log("Tracking referral for user:", userId, "with code:", storedCode);
+      
       // Call the track_referral function
-      const { error } = await supabase.rpc('track_referral', {
+      const { data, error } = await supabase.rpc('track_referral', {
         user_id: userId,
         referral_code: storedCode
       });
+      
+      console.log("Referral tracking response:", { data, error });
       
       if (!error) {
         toast.success(
@@ -58,9 +63,11 @@ const Auth = () => {
         sessionStorage.removeItem("referralCode");
       } else {
         console.error("Error tracking referral:", error);
+        toast.error("Erreur lors de l'enregistrement du parrainage");
       }
     } catch (error) {
       console.error("Failed to track referral:", error);
+      toast.error("Erreur lors de l'enregistrement du parrainage");
     }
   };
 

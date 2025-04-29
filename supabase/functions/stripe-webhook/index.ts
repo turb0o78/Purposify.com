@@ -95,7 +95,13 @@ serve(async (req) => {
 // Gestion de la session de paiement complétée
 async function handleCheckoutSession(session: any, supabase: any) {
   try {
-    logEvent("Processing checkout session completion", { session_id: session.id });
+    logEvent("Processing checkout session completion", { 
+      session_id: session.id,
+      customer: session.customer,
+      subscription: session.subscription,
+      metadata: session.metadata,
+      payment_status: session.payment_status
+    });
     
     // Si c'est une session d'abonnement et qu'elle est payée
     if (session.mode === "subscription" && session.payment_status === "paid") {
@@ -111,13 +117,60 @@ async function handleCheckoutSession(session: any, supabase: any) {
         plan: plan
       });
 
-      if (customerId && subscriptionId) {
-        // Récupérer les détails de l'abonnement
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        const period_end = new Date(subscription.current_period_end * 1000).toISOString();
+      // Vérifier si un utilisateur est associé à cette session directement via metadata
+      if (userId) {
+        logEvent("User ID found in metadata", { user_id: userId });
         
-        // Mettre à jour l'abonné dans la base de données
-        await updateSubscriber(supabase, userId, customerId, subscriptionId, plan, period_end);
+        if (customerId && subscriptionId) {
+          // Récupérer les détails de l'abonnement
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          logEvent("Retrieved subscription details", { 
+            subscription_id: subscriptionId,
+            status: subscription.status,
+            current_period_end: subscription.current_period_end
+          });
+          
+          const period_end = new Date(subscription.current_period_end * 1000).toISOString();
+          
+          // Mettre à jour l'abonné dans la base de données
+          await updateSubscriber(supabase, userId, customerId, subscriptionId, plan, period_end);
+          
+          // Vérifier s'il y a un code de parrainage associé à l'utilisateur
+          await processReferralCommission(supabase, userId, customerId, session.amount_total / 100, session.currency);
+        }
+      } else {
+        logEvent("No user_id found in session metadata, attempting to find user by email");
+        
+        // Si pas d'ID utilisateur dans les métadonnées, essayer de trouver l'utilisateur par email
+        if (customerId) {
+          const customer = await stripe.customers.retrieve(customerId);
+          if (customer && !customer.deleted && customer.email) {
+            logEvent("Found customer email", { email: customer.email });
+            
+            // Rechercher l'utilisateur par email
+            const { data: userData, error: userError } = await supabase
+              .from('subscribers')
+              .select('user_id')
+              .eq('email', customer.email)
+              .single();
+            
+            if (userError) {
+              logEvent("Error finding user by email", { error: userError.message });
+            } else if (userData && userData.user_id) {
+              logEvent("Found user by email", { user_id: userData.user_id });
+              
+              // Récupérer les détails de l'abonnement
+              const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+              const period_end = new Date(subscription.current_period_end * 1000).toISOString();
+              
+              // Mettre à jour l'abonné avec l'ID utilisateur trouvé
+              await updateSubscriber(supabase, userData.user_id, customerId, subscriptionId, plan, period_end);
+              
+              // Traiter la commission de parrainage si applicable
+              await processReferralCommission(supabase, userData.user_id, customerId, session.amount_total / 100, session.currency);
+            }
+          }
+        }
       }
     }
   } catch (error) {
@@ -132,8 +185,14 @@ async function handleInvoicePayment(invoice: any, supabase: any) {
       invoice_id: invoice.id,
       customer: invoice.customer,
       subscription: invoice.subscription,
-      amount_paid: invoice.amount_paid 
+      amount_paid: invoice.amount_paid,
+      status: invoice.status 
     });
+    
+    if (invoice.status !== 'paid') {
+      logEvent("Invoice not paid, skipping", { status: invoice.status });
+      return;
+    }
     
     if (invoice.subscription && invoice.customer) {
       const customerId = invoice.customer;
@@ -144,9 +203,17 @@ async function handleInvoicePayment(invoice: any, supabase: any) {
       
       // Récupérer le client Stripe pour obtenir les métadonnées
       const customer = await stripe.customers.retrieve(customerId);
+      logEvent("Retrieved customer", { 
+        customer_id: customerId, 
+        email: customer.deleted ? null : customer.email 
+      });
       
-      // Récupérer l'abonnement pour voir les détails supplémentaires si nécessaire
+      // Récupérer l'abonnement pour voir les détails supplémentaires
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      logEvent("Retrieved subscription", { 
+        subscription_id: subscriptionId,
+        status: subscription.status 
+      });
       
       // Trouver l'utilisateur associé au customerId dans la base de données
       const { data: subscribers, error: subscribersError } = await supabase
@@ -156,6 +223,7 @@ async function handleInvoicePayment(invoice: any, supabase: any) {
         .limit(1);
       
       if (subscribersError) {
+        logEvent("Error finding subscriber", { error: subscribersError.message });
         throw new Error(`Error finding subscriber: ${subscribersError.message}`);
       }
       
@@ -169,25 +237,73 @@ async function handleInvoicePayment(invoice: any, supabase: any) {
         const period_end = new Date(subscription.current_period_end * 1000).toISOString();
         await updateSubscriber(supabase, userId, customerId, subscriptionId, plan, period_end);
         
-        // Enregistrer la commission si c'est une facture récurrente pour un abonnement
-        const { data: commissionResult, error: commissionError } = await supabase.rpc('record_commission', {
-          invoice_id: invoiceId,
-          customer_id: customerId,
-          amount: amountPaid,
-          currency: currency
-        });
-        
-        if (commissionError) {
-          logEvent("Error recording commission", { error: commissionError });
-        } else {
-          logEvent("Commission recorded", { result: commissionResult });
-        }
+        // Enregistrer la commission si c'est une facture pour un abonnement
+        await processReferralCommission(supabase, userId, customerId, amountPaid, currency, invoiceId);
       } else {
         logEvent("No subscriber found for customer ID", { customer_id: customerId });
       }
     }
   } catch (error) {
     logEvent(`Error in handleInvoicePayment: ${error.message}`, { error });
+  }
+}
+
+// Fonction pour traiter les commissions de parrainage
+async function processReferralCommission(
+  supabase: any,
+  userId: string,
+  customerId: string,
+  amount: number,
+  currency: string,
+  invoiceId?: string
+) {
+  try {
+    logEvent("Processing potential referral commission", { 
+      user_id: userId, 
+      amount, 
+      currency 
+    });
+    
+    // Vérifier si l'utilisateur a été parrainé
+    const { data: referredData, error: referredError } = await supabase
+      .from('referred_users')
+      .select('referred_by, referral_code')
+      .eq('user_id', userId)
+      .single();
+    
+    if (referredError) {
+      logEvent("Error checking referral status", { error: referredError.message });
+      return;
+    }
+    
+    if (referredData && referredData.referred_by) {
+      logEvent("User was referred", { 
+        referred_by: referredData.referred_by, 
+        referral_code: referredData.referral_code 
+      });
+      
+      // Appeler la fonction RPC pour enregistrer la commission
+      const { data: commissionResult, error: commissionError } = await supabase.rpc('record_commission', {
+        invoice_id: invoiceId || `manual_${Date.now()}`,
+        customer_id: customerId,
+        amount: amount,
+        currency: currency
+      });
+      
+      if (commissionError) {
+        logEvent("Error recording commission", { error: commissionError.message });
+      } else {
+        logEvent("Commission recorded successfully", { 
+          result: commissionResult, 
+          amount: amount,
+          referred_by: referredData.referred_by 
+        });
+      }
+    } else {
+      logEvent("User was not referred, no commission to process");
+    }
+  } catch (error) {
+    logEvent(`Error in processReferralCommission: ${error.message}`, { error });
   }
 }
 
@@ -213,6 +329,7 @@ async function handleSubscriptionUpdate(subscription: any, supabase: any) {
       .limit(1);
     
     if (subscribersError) {
+      logEvent("Error finding subscriber for subscription update", { error: subscribersError.message });
       throw new Error(`Error finding subscriber: ${subscribersError.message}`);
     }
     
@@ -259,12 +376,12 @@ async function handleSubscriptionCancelled(subscription: any, supabase: any) {
       .limit(1);
     
     if (subscribersError) {
+      logEvent("Error finding subscriber for cancellation", { error: subscribersError.message });
       throw new Error(`Error finding subscriber: ${subscribersError.message}`);
     }
     
     if (subscribers && subscribers.length > 0) {
       const userId = subscribers[0].user_id;
-      const plan = subscribers[0].plan;
       
       // Marquer l'abonnement comme inactif
       const { error: updateError } = await supabase
@@ -276,6 +393,7 @@ async function handleSubscriptionCancelled(subscription: any, supabase: any) {
         .eq('stripe_customer_id', customerId);
       
       if (updateError) {
+        logEvent("Error updating subscriber status", { error: updateError.message });
         throw new Error(`Error updating subscriber: ${updateError.message}`);
       }
       
@@ -299,6 +417,15 @@ async function updateSubscriber(
   isActive: boolean = true
 ) {
   try {
+    logEvent("Updating subscriber", { 
+      user_id: userId,
+      customer_id: customerId,
+      subscription_id: subscriptionId,
+      plan,
+      period_end,
+      is_active: isActive
+    });
+    
     // Définir les limites de plateforme en fonction du plan
     let platformLimits = {
       tiktok: 2,
@@ -349,10 +476,16 @@ async function updateSubscriber(
         .select();
       
       if (error) {
+        logEvent("Error updating subscriber by user_id", { error: error.message });
         throw new Error(`Error updating subscriber by user_id: ${error.message}`);
       }
       
-      logEvent("Updated subscriber by user_id", { user_id: userId, plan, is_active: isActive });
+      logEvent("Updated subscriber by user_id", { 
+        user_id: userId, 
+        plan, 
+        is_active: isActive,
+        subscription_ends_at: period_end
+      });
     } 
     // Sinon, on met à jour par customer_id
     else {
@@ -370,10 +503,16 @@ async function updateSubscriber(
         .select();
       
       if (error) {
+        logEvent("Error updating subscriber by customer_id", { error: error.message });
         throw new Error(`Error updating subscriber by customer_id: ${error.message}`);
       }
       
-      logEvent("Updated subscriber by stripe_customer_id", { customer_id: customerId, plan, is_active: isActive });
+      logEvent("Updated subscriber by stripe_customer_id", { 
+        customer_id: customerId, 
+        plan, 
+        is_active: isActive,
+        subscription_ends_at: period_end
+      });
     }
   } catch (error) {
     logEvent(`Error in updateSubscriber: ${error.message}`, { error });

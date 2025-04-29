@@ -332,7 +332,7 @@ serve(async (req) => {
     }
 
     // Rediriger vers l'application avec le paramètre de succès
-    const redirectUrl = 'https://reel-stream-forge.lovable.app/connections?success=true';
+    const redirectUrl = 'https://opaldesign.fr/connections?success=true';
     console.log('Redirecting to:', redirectUrl);
     
     return new Response(null, {
@@ -346,7 +346,7 @@ serve(async (req) => {
     console.error('TikTok OAuth callback error:', error.message);
     
     // Rediriger vers l'application avec le paramètre d'erreur
-    const errorUrl = 'https://reel-stream-forge.lovable.app/connections?error=' + encodeURIComponent(error.message);
+    const errorUrl = 'https://opaldesign.fr/connections?error=' + encodeURIComponent(error.message);
     console.log('Redirecting to error URL:', errorUrl);
     
     return new Response(null, {

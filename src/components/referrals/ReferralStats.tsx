@@ -9,10 +9,19 @@ interface ReferralStatsProps {
 
 const ReferralStats = ({ stats }: ReferralStatsProps) => {
   const formatCurrency = (amount: number, currency: string = 'EUR') => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: currency
-    }).format(amount);
+    // Enhanced currency formatter to better support different locales
+    try {
+      return new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amount);
+    } catch (error) {
+      console.error("Error formatting currency:", error);
+      // Fallback formatting if there's an issue with the NumberFormat
+      return `${amount.toFixed(2)} ${currency}`;
+    }
   };
 
   if (!stats) return null;

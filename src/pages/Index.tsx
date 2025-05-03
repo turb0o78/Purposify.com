@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -540,4 +541,48 @@ const Index = () => {
                 </a>
                 <a href="#" className="text-gray-400 hover:text-white transition-colors">
                   <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363-.416-2.427-.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465
+                    <path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.048-1.067-.06-1.407-.06-4.123v-.08c0-2.643.012-2.987.06-4.043.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772 4.902 4.902 0 011.772-1.153c.636-.247 1.363-.416 2.427-.465 1.067-.048 1.407-.06 4.123-.06h.08c2.643 0 2.987.012 4.043.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a5.013 5.013 0 01-2.925-2.925c-.247-.636-.416-1.363-.465-2.427-.048-1.056-.06-1.397-.06-4.043v-.08c0-2.715.012-3.056.06-4.123.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772 4.902 4.902 0 011.772-1.153c.636-.247 1.363-.416 2.427-.465 1.067-.048 1.407-.06 4.123-.06h.08c2.716 0 3.057.012 4.123.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043z" clipRule="evenodd" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Product</h3>
+                <ul className="space-y-2">
+                  <li><a href="#features" className="text-gray-400 hover:text-white transition-colors">Features</a></li>
+                  <li><a href="#pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</a></li>
+                  <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Integrations</a></li>
+                  <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Updates</a></li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Resources</h3>
+                <ul className="space-y-2">
+                  <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Documentation</a></li>
+                  <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Tutorials</a></li>
+                  <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Blog</a></li>
+                  <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Support</a></li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Company</h3>
+                <ul className="space-y-2">
+                  <li><a href="#" className="text-gray-400 hover:text-white transition-colors">About</a></li>
+                  <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Careers</a></li>
+                  <li><Link to="/privacy" className="text-gray-400 hover:text-white transition-colors">Privacy</Link></li>
+                  <li><Link to="/terms" className="text-gray-400 hover:text-white transition-colors">Terms</Link></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-gray-800 pt-8">
+            <p className="text-gray-400 text-sm">© {new Date().getFullYear()} Purposify. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default Index;

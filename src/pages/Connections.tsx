@@ -1,8 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { Connection, Platform } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import ConnectionCard from "@/components/ConnectionCard";
 import { toast } from "@/components/ui/use-toast";
 import { Check } from "lucide-react";
@@ -228,11 +226,6 @@ const Connections = () => {
     );
   }
 
-  // Define hardcoded redirect URIs that don't rely on Deno variables
-  const supabaseUrl = "https://tarjnmziaghkzosivsqk.supabase.co";
-  const tiktokRedirectUri = `${supabaseUrl}/functions/v1/tiktok-oauth-callback`;
-  const youtubeRedirectUri = `${supabaseUrl}/functions/v1/youtube-oauth-callback`;
-
   return (
     <div className="container mx-auto py-6">
       <div className="mb-6">
@@ -269,67 +262,6 @@ const Connections = () => {
           onDisconnect={handleDisconnect}
         />
       </div>
-      
-      <Card className="mt-8">
-        <CardContent className="pt-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold">Connection Details</h2>
-            <p className="text-muted-foreground text-sm mt-1">
-              Technical information about your platform connections
-            </p>
-          </div>
-          
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium mb-2">TikTok API</h3>
-              <div className="bg-gray-100 p-4 rounded-md">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Client ID</p>
-                    <code className="text-sm bg-gray-200 p-1 rounded">sbawa90yd34c5s6msg</code>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Redirect URI</p>
-                    <code className="text-sm bg-gray-200 p-1 rounded">
-                      {tiktokRedirectUri}
-                    </code>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Status</p>
-                    <p className={connections.some(c => c.platform === "tiktok") ? "text-green-600 font-medium" : "text-yellow-600 font-medium"}>
-                      {connections.some(c => c.platform === "tiktok") ? "Connected" : "Not connected"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-medium mb-2">YouTube API</h3>
-              <div className="bg-gray-100 p-4 rounded-md">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Client ID</p>
-                    <code className="text-sm bg-gray-200 p-1 rounded">716459993916-dtfg52nflg5jdrna5vtg2h4ahupvt7bs.apps.googleusercontent.com</code>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Redirect URI</p>
-                    <code className="text-sm bg-gray-200 p-1 rounded">
-                      {youtubeRedirectUri}
-                    </code>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Status</p>
-                    <p className={connections.some(c => c.platform === "youtube") ? "text-green-600 font-medium" : "text-yellow-600 font-medium"}>
-                      {connections.some(c => c.platform === "youtube") ? "Connected" : "Not connected"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

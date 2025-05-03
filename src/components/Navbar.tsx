@@ -23,7 +23,7 @@ import {
   Package, 
   Users, 
   LayoutDashboard, 
-  Connection, 
+  Link2, 
   Workflow,
   FileVideo, 
   Repeat, 
@@ -67,7 +67,7 @@ const Navbar = () => {
     {
       name: "Connections",
       path: "/connections",
-      icon: <Connection className="h-4 w-4 mr-1" />
+      icon: <Link2 className="h-4 w-4 mr-1" />
     },
     {
       name: "Parrainage",

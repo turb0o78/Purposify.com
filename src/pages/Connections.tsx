@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Connection, Platform } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
 
+// Define empty connections array with updated platforms
 const emptyConnections: Partial<Connection>[] = [
   {
     platform: "tiktok",

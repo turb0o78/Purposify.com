@@ -1,5 +1,5 @@
 
-export type Platform = "tiktok" | "youtube" | "instagram" | "facebook";
+export type Platform = "tiktok" | "youtube" | "instagram" | "facebook" | "google_drive" | "dropbox" | "pinterest";
 
 export type ConnectionStatus = "connected" | "disconnected" | "pending";
 

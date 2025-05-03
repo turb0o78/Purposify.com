@@ -44,7 +44,7 @@ serve(async (req) => {
     
     // Store the state and user ID in Supabase for verification later
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    await supabaseAdmin
+    const { error: stateError } = await supabaseAdmin
       .from('oauth_states')
       .insert({
         state,
@@ -52,6 +52,11 @@ serve(async (req) => {
         provider: 'google_drive',
         created_at: new Date().toISOString()
       });
+      
+    if (stateError) {
+      console.error("Google Drive OAuth: Error storing state:", stateError);
+      throw new Error("Failed to store OAuth state");
+    }
 
     console.log("Google Drive OAuth: State stored in database");
 

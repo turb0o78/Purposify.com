@@ -147,6 +147,7 @@ const Connections = () => {
     }
   }, [user]);
 
+  // Update the handleConnect function to correctly handle Google Drive platform
   const handleConnect = async (platform: Connection['platform']) => {
     if (!user) {
       toast({
@@ -161,6 +162,8 @@ const Connections = () => {
     setConnectingPlatform(platform);
 
     try {
+      console.log(`Initiating ${platform} OAuth flow for user ${user.id}`);
+      
       // Include userId in the request body as a fallback for auth issues
       const { data, error } = await supabase.functions.invoke(`${platform}-oauth`, {
         method: 'POST',
@@ -176,6 +179,7 @@ const Connections = () => {
         // Redirect to OAuth URL
         window.location.href = data.url;
       } else {
+        console.error(`Invalid response from ${platform} OAuth service:`, data);
         throw new Error(`Invalid response from ${platform} OAuth service`);
       }
     } catch (error) {
@@ -185,6 +189,7 @@ const Connections = () => {
         description: `Failed to connect to ${platform}. Please try again.`,
         variant: "destructive",
       });
+    } finally {
       setConnecting(false);
       setConnectingPlatform(null);
     }

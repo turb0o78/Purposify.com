@@ -54,20 +54,25 @@ export function useGoogleDrive() {
       throw new Error("User and connection ID are required");
     }
     
-    const { data, error } = await supabase.functions.invoke('google-drive-files', {
-      body: {
-        userId: user.id,
-        connectionId,
-        fileType
+    try {
+      const { data, error } = await supabase.functions.invoke('google-drive-files', {
+        body: {
+          userId: user.id,
+          connectionId,
+          fileType
+        }
+      });
+      
+      if (error) {
+        console.error("Google Drive files error:", error);
+        throw error;
       }
-    });
-    
-    if (error) {
-      console.error("Google Drive files error:", error);
+      
+      return data.files as GoogleDriveFile[];
+    } catch (error) {
+      console.error("Error fetching Google Drive files:", error);
       throw error;
     }
-    
-    return data.files as GoogleDriveFile[];
   };
   
   // Query for files in a specific Google Drive account
@@ -114,6 +119,9 @@ export function useGoogleDrive() {
       }
       
       return data;
+    } catch (error) {
+      console.error("Google Drive upload error:", error);
+      throw error;
     } finally {
       setIsUploading(false);
     }

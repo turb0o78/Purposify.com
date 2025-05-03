@@ -166,7 +166,6 @@ const Connections = () => {
       
       // Include userId in the request body as a fallback for auth issues
       const { data, error } = await supabase.functions.invoke(`${platform}-oauth`, {
-        method: 'POST',
         body: { userId: user.id }
       });
 
@@ -175,8 +174,11 @@ const Connections = () => {
         throw new Error(`Failed to connect to ${platform}`);
       }
 
+      console.log(`${platform} OAuth response:`, data);
+
       if (data && data.url) {
         // Redirect to OAuth URL
+        console.log(`Redirecting to ${platform} OAuth URL:`, data.url);
         window.location.href = data.url;
       } else {
         console.error(`Invalid response from ${platform} OAuth service:`, data);

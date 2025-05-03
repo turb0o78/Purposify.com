@@ -38,12 +38,21 @@ serve(async (req) => {
     }
 
     console.log("Google Drive OAuth: Credentials checked");
+    console.log("Google client ID:", GOOGLE_CLIENT_ID ? "Present" : "Missing");
+    console.log("Google client secret:", GOOGLE_CLIENT_SECRET ? "Present" : "Missing");
 
     // Create a random state identifier for this OAuth flow
     const state = crypto.randomUUID();
     
     // Store the state and user ID in Supabase for verification later
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    console.log("Google Drive OAuth: Creating state record with:", {
+      state,
+      provider: 'google_drive',
+      created_at: new Date().toISOString()
+    });
+    
     const { error: stateError } = await supabaseAdmin
       .from('oauth_states')
       .insert({
@@ -67,7 +76,7 @@ serve(async (req) => {
     // Construct Google OAuth URL
     const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&response_type=code&scope=${scope}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&access_type=offline&prompt=consent`;
     
-    console.log("Google Drive OAuth: OAuth URL created");
+    console.log("Google Drive OAuth: OAuth URL created:", url);
     
     return new Response(
       JSON.stringify({ url }),

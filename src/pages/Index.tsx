@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -317,7 +318,7 @@ const Index = () => {
               },
               {
                 step: "03",
-3 title: "Publish Everywhere",
+                title: "Publish Everywhere",
                 description: "Schedule and publish to all your platforms automatically"
               }
             ].map((step, i) => (

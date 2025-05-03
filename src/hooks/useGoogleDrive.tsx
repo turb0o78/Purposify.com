@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Connection } from "@/types";
+import { Connection, Platform } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 
 interface GoogleDriveFile {
@@ -35,7 +35,15 @@ export function useGoogleDrive() {
         
       if (error) throw error;
       
-      return data as Connection[];
+      // Map database results to our Connection interface
+      return data.map(conn => ({
+        id: conn.id,
+        platform: conn.platform as Platform,
+        name: conn.platform_username || `Google Drive Account`,
+        status: "connected" as ConnectionStatus,
+        avatar: conn.platform_avatar_url,
+        connected_at: conn.created_at ? new Date(conn.created_at) : undefined
+      })) as Connection[];
     },
     enabled: !!user,
   });

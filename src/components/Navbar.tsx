@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Settings, User, Package, Users } from "lucide-react";
+import PurposifyLogo from "./PurposifyLogo";
 
 interface NavLink {
   name: string;
@@ -89,7 +90,7 @@ const Navbar = () => {
       <div className="container px-4 mx-auto flex justify-between items-center h-16">
         <div className="flex items-center">
           <Link to="/dashboard" className="flex items-center">
-            <span className="font-bold text-xl">ReelStreamForge</span>
+            <PurposifyLogo />
           </Link>
         </div>
 

@@ -16,6 +16,7 @@ import {
   ShieldCheck 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import PurposifyLogo from "@/components/PurposifyLogo";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -149,7 +150,7 @@ const Index = () => {
         scrolled ? "bg-white/95 backdrop-blur-sm border-gray-100 shadow-sm" : ""
       )}>
         <div className="container mx-auto px-4 flex justify-between items-center">
-          <div className="font-bold text-2xl text-blue-600">ReelStreamForge</div>
+          <PurposifyLogo className="h-8" />
           <div className="hidden md:flex items-center space-x-8">
             <a href="#features" className="text-gray-600 hover:text-blue-600 transition-colors">Features</a>
             <a href="#how-it-works" className="text-gray-600 hover:text-blue-600 transition-colors">How It Works</a>
@@ -190,7 +191,7 @@ const Index = () => {
                 <span className="block">everywhere</span>
               </h1>
               <p className="text-xl text-gray-600 max-w-md">
-                Elevate your online presence across platforms with ReelStreamForge. Republish your content without watermarks, saving time and maximizing impact.
+                Elevate your online presence across platforms with Purposify. Republish your content without watermarks, saving time and maximizing impact.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button 
@@ -232,7 +233,7 @@ const Index = () => {
                 <div className="aspect-video bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-xl shadow-blue-100/50">
                   <img 
                     src="/lovable-uploads/7de1f90f-28ea-411c-95ea-f78e347ff07a.png" 
-                    alt="ReelStreamForge Demo" 
+                    alt="Purposify Demo" 
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
@@ -504,7 +505,9 @@ const Index = () => {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between mb-12">
             <div className="mb-8 md:mb-0 md:w-1/3">
-              <h3 className="font-bold text-2xl mb-4">ReelStreamForge</h3>
+              <div className="mb-4">
+                <PurposifyLogo variant="white" />
+              </div>
               <p className="text-gray-400 max-w-xs">
                 Your automation companion for content repurposing and scheduling across multiple platforms.
               </p>
@@ -561,7 +564,7 @@ const Index = () => {
           <div className="pt-8 border-t border-gray-800">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <p className="text-gray-400 text-sm mb-4 md:mb-0">
-                &copy; {new Date().getFullYear()} ReelStreamForge. All rights reserved.
+                &copy; {new Date().getFullYear()} Purposify. All rights reserved.
               </p>
               <div className="flex gap-6">
                 <Link to="/privacy" className="text-gray-400 hover:text-white transition-colors text-sm">
@@ -583,4 +586,3 @@ const Index = () => {
 };
 
 export default Index;
-

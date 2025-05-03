@@ -28,8 +28,8 @@ export const useUserStats = () => {
         // These fields need to be added - they don't exist directly in the DB response
         videos_processed: data?.total_repurposed || 0,
         videos_published: data?.total_published || 0,
-        accounts_connected: data?.accounts_connected || 0, // Provide default values
-        platforms_connected: data?.platforms_connected || 0, // Provide default values
+        accounts_connected: 0, // Default value since it's not in the DB response
+        platforms_connected: 0, // Default value since it's not in the DB response
       };
     },
   });

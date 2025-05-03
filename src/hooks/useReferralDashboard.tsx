@@ -27,9 +27,9 @@ export interface Commission {
   paidAt?: Date;
 }
 
-// Fonction pour générer un code de parrainage unique
+// Function to generate a unique referral code
 const generateReferralCode = (): string => {
-  // Générer un code court basé sur uuid mais plus facile à lire/copier
+  // Generate a short code based on uuid but easier to read/copy
   return uuidv4().substring(0, 8).toUpperCase();
 };
 
@@ -49,14 +49,20 @@ export const useReferralDashboard = () => {
       
       try {
         // Get referral code or create one if it doesn't exist
-        let { data: referralData } = await supabase
+        let { data: referralData, error: fetchError } = await supabase
           .from('referrals')
           .select('referral_code')
           .eq('user_id', user.id)
           .single();
           
-        // Si l'utilisateur n'a pas de code de parrainage, en créer un
+        // Log any fetch errors
+        if (fetchError) {
+          console.error("Error fetching referral code:", fetchError);
+        }
+          
+        // If user doesn't have a referral code, create one
         if (!referralData) {
+          console.log("No referral code found, creating new one");
           const referralCode = generateReferralCode();
           
           const { data: newReferralData, error: insertError } = await supabase
@@ -74,21 +80,34 @@ export const useReferralDashboard = () => {
           }
           
           referralData = newReferralData;
+          console.log("Created new referral code:", referralCode);
+        } else {
+          console.log("Found existing referral code:", referralData.referral_code);
         }
         
-        // Get referred users with their emails
-        const { data: referredUsersData } = await supabase
+        // Get referred users with their email addresses
+        const { data: referredUsersData, error: referredUsersError } = await supabase
           .from('referred_users')
           .select('id, user_id, joined_at')
           .eq('referred_by', user.id);
           
+        if (referredUsersError) {
+          console.error("Error fetching referred users:", referredUsersError);
+        }
+        
+        console.log("Referred users data:", referredUsersData);
+          
         // Get commissions
-        const { data: commissionsData } = await supabase
+        const { data: commissionsData, error: commissionsError } = await supabase
           .from('commissions')
           .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
           
+        if (commissionsError) {
+          console.error("Error fetching commissions:", commissionsError);
+        }
+        
         // Calculate totals
         const totalCommissions = (commissionsData || []).reduce(
           (sum, commission) => sum + Number(commission.amount),

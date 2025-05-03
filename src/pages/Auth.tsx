@@ -66,23 +66,32 @@ const Auth = () => {
       
       console.log("Signup successful, user data:", data);
       
-      // If we have a referral code, save it to the database
+      // Process the referral code if it exists
       if (referralCode && data.user) {
-        console.log("Adding referral record for code:", referralCode);
-        const { error: refError } = await supabase.from('referrals').insert({
-          referral_code: referralCode,
-          user_id: data.user.id,
-        });
+        console.log("Processing referral code:", referralCode);
+        
+        // Call the track_referral function to record the referral
+        const { data: refData, error: refError } = await supabase.rpc(
+          'track_referral',
+          { 
+            user_id: data.user.id,
+            referral_code: referralCode
+          }
+        );
         
         if (refError) {
-          console.error("Error saving referral info:", refError);
+          console.error("Error tracking referral:", refError);
           toast({
             title: "Warning",
             description: "Your account was created, but we couldn't process the referral code.",
             variant: "destructive",
           });
         } else {
-          console.log("Referral successfully recorded");
+          console.log("Referral successfully processed:", refData);
+          toast({
+            title: "Referral Recorded",
+            description: "Your account was created and referral was successfully processed.",
+          });
         }
       }
 

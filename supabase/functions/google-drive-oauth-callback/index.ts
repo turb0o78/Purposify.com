@@ -93,8 +93,8 @@ serve(async (req) => {
     const tokenData = JSON.parse(tokenResponseText);
     console.log("Google Drive OAuth Callback: Token obtained successfully");
     
-    // Get user info to display in the UI
-    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+    // Correction : Utiliser le bon endpoint et utiliser access_token correctement
+    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
       },
@@ -107,7 +107,7 @@ serve(async (req) => {
     }
     
     const userInfo = await userInfoResponse.json();
-    console.log("Google Drive OAuth Callback: User info obtained");
+    console.log("Google Drive OAuth Callback: User info obtained", userInfo);
     
     // Store the connection in Supabase
     const { error: insertError } = await supabaseAdmin
@@ -115,7 +115,7 @@ serve(async (req) => {
       .insert({
         user_id: userId,
         platform: 'google_drive',
-        platform_user_id: userInfo.id,
+        platform_user_id: userInfo.sub, // Google user ID est dans sub
         platform_username: userInfo.email,
         platform_avatar_url: userInfo.picture,
         access_token: tokenData.access_token,

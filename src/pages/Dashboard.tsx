@@ -1,4 +1,3 @@
-
 import { useUserStats } from "@/hooks/useUserStats";
 import { useUserContent } from "@/hooks/useUserContent";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -10,220 +9,236 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Package, Settings, User, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth, useNavigate, useToast } from "@/hooks";
+import { format } from "date-fns";
+import { Progress } from "@/components/ui/progress";
+import { Globe, Upload, Radio, Share2 } from "lucide-react";
+
+interface DashboardStats {
+  videos_processed: number;
+  videos_published: number;
+  accounts_connected: number;
+  views: number;
+  likes: number;
+  comments: number;
+  platforms_connected: number; // Added this property
+}
 
 const Dashboard = () => {
-  const { data: stats, isLoading: isLoadingStats } = useUserStats();
-  const { data: recentContent, isLoading: isLoadingContent } = useUserContent();
-  const { data: subscription } = useSubscription();
+  const { user } = useAuth();
+  const { data: userStats, isLoading: statsLoading } = useUserStats();
+  const { data: subscription, isLoading: subscriptionLoading } = useSubscription();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  if (isLoadingStats || isLoadingContent) {
-    return (
-      <div className="container mx-auto py-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Format subscription end date
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    return format(new Date(dateString), "MMMM d, yyyy");
+  };
 
-  const planFeatures = {
-    trial: [
-      "Connect 1 Account per Social Media",
-      "Publish 10 Videos",
-      "Connections to TikTok, YouTube, Instagram",
-      "Access to basic analytics"
-    ],
-    basic: [
-      "Connect 1 Account per Social Media",
-      "Publish 25 Videos",
-      "Connections to TikTok, YouTube, Instagram, Pinterest",
-      "Access to detailed analytics",
-      "Priority support"
-    ],
-    agency: [
-      "Connect 5 Accounts per Social Media",
-      "Unlimited Videos",
-      "All platform connections",
-      "Advanced analytics and reporting",
-      "Dedicated account manager"
-    ]
+  // Calculate videos remaining
+  const getVideosRemaining = () => {
+    if (!subscription || !userStats) return 0;
+    const limit = subscription.platform_limits?.videos || 0;
+    return Math.max(0, limit - userStats.videos_processed);
+  };
+  
+  // Calculate usage percentage
+  const getUsagePercentage = () => {
+    if (!subscription || !userStats) return 0;
+    const limit = subscription.platform_limits?.videos || 1;
+    return Math.min(100, Math.round((userStats.videos_processed / limit) * 100));
+  };
+
+  // Helper function to get plan display name
+  const getPlanName = () => {
+    if (!subscription) return "Loading...";
+    
+    switch (subscription.plan) {
+      case "trial":
+        return "Free Trial";
+      case "basic":
+        return "Basic Plan";
+      case "pro":
+        return "Pro Plan";
+      case "agency":
+        return "Agency Plan";
+      default:
+        return "Unknown Plan";
+    }
+  };
+
+  // Get subscription end date
+  const getSubscriptionEndDate = () => {
+    if (!subscription) return "Loading...";
+    
+    if (subscription.plan === "trial") {
+      return `Trial ends on ${formatDate(subscription.trial_ends_at)}`;
+    } else {
+      return `Renews on ${formatDate(subscription.subscription_ends_at)}`;
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <DashboardHeader 
-          title="Dashboard"
-          description="Overview and analytics for your content repurposing"
-        />
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          <StatCard 
-            title="Total Content"
-            value={stats?.totalRepurposed || 0}
-            className="bg-white shadow-sm"
-          />
-          <StatCard 
-            title="Pending"
-            value={stats?.pending || 0}
-            className="bg-white shadow-sm"
-          />
-          <StatCard 
-            title="Published"
-            value={stats?.published || 0}
-            className="bg-white shadow-sm"
-          />
-          <StatCard 
-            title="Failed"
-            value={stats?.failed || 0}
-            className={`bg-white shadow-sm ${
-              stats?.failed ? "border-red-200" : ""
-            }`}
-          />
+    <div className="container px-4 py-8 mx-auto max-w-7xl">
+      <DashboardHeader 
+        title="Dashboard"
+        description="Welcome back! Here's an overview of your content performance."
+      />
+      
+      {(statsLoading || subscriptionLoading) ? (
+        <div className="grid gap-6 md:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white p-6 rounded-xl shadow-sm animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
         </div>
-        
-        {/* Current plan overview */}
-        <Card className="mb-8 bg-white shadow-sm border-blue-100">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xl flex items-center">
-              <Package className="mr-2 h-5 w-5 text-blue-600" />
-              Your Current Plan: <span className="ml-2 text-blue-600 capitalize">{subscription?.plan || "Loading..."}</span>
-            </CardTitle>
-            <CardDescription>
-              {subscription?.is_active 
-                ? `Active until ${subscription?.subscription_ends_at || 'N/A'}`
-                : subscription?.plan === 'trial'
-                  ? `Trial ends on ${subscription?.trial_ends_at || 'N/A'}`
-                  : "Your subscription is inactive"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <h3 className="font-medium text-gray-700 mb-2">Plan Features</h3>
-                <ul className="space-y-2">
-                  {subscription?.plan && planFeatures[subscription.plan]?.map((feature, i) => (
-                    <li key={i} className="flex items-center text-sm">
-                      <CheckCircle2 className="h-4 w-4 mr-2 text-blue-600" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h3 className="font-medium text-gray-700 mb-2">Usage</h3>
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Videos Used</span>
-                      <span className="font-medium">
-                        {stats?.totalRepurposed || 0} / {subscription?.platform_limits?.videos || 'Unlimited'}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-blue-600 rounded-full" 
-                        style={{
-                          width: subscription?.platform_limits?.videos
-                            ? `${Math.min(((stats?.totalRepurposed || 0) / subscription.platform_limits.videos) * 100, 100)}%`
-                            : '0%'
-                        }}
-                      ></div>
-                    </div>
+      ) : (
+        <div className="space-y-10">
+          {/* Stats cards grid */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              title="Videos Processed"
+              value={userStats?.videos_processed || 0}
+              trend={10}
+              trendLabel="vs. last month"
+            />
+            <StatCard
+              title="Videos Published"
+              value={userStats?.videos_published || 0}
+              trend={5}
+              trendLabel="vs. last month"
+            />
+            <StatCard
+              title="Accounts Connected"
+              value={userStats?.accounts_connected || 0}
+              trend={0}
+              trendLabel="unchanged"
+              trendDirection="neutral"
+            />
+            <StatCard
+              title="Platforms Connected"
+              value={userStats?.platforms_connected || 0}
+              trend={0}
+              trendLabel="new additions"
+              trendDirection="neutral"
+            />
+          </div>
+          
+          {/* Current plan and usage */}
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="md:col-span-1 bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <h3 className="text-lg font-semibold mb-4">Current Plan</h3>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500">Plan</span>
+                    <span className="font-medium text-gray-900">{getPlanName()}</span>
                   </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Connected Accounts</span>
-                      <span className="font-medium">
-                        {stats?.platforms || 0} / {subscription?.platform_limits?.platforms || 'Unlimited'}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-blue-600 rounded-full" 
-                        style={{
-                          width: subscription?.platform_limits?.platforms
-                            ? `${Math.min(((stats?.platforms || 0) / subscription.platform_limits.platforms) * 100, 100)}%`
-                            : '0%'
-                        }}
-                      ></div>
-                    </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-gray-500">Status</span>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      subscription?.is_active ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {subscription?.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-gray-500">Renewal</span>
+                    <span className="text-gray-900">{getSubscriptionEndDate()}</span>
                   </div>
                 </div>
+
+                <Button 
+                  className="w-full bg-blue-600"
+                  variant="default"
+                  onClick={() => navigate('/settings/subscription')}
+                >
+                  {subscription?.plan === "trial" ? "Upgrade Plan" : "Manage Plan"}
+                </Button>
               </div>
             </div>
-          </CardContent>
-          <CardFooter>
-            <div className="flex justify-end w-full">
-              <Button asChild variant="outline" className="mr-2">
-                <Link to="/settings/account">Manage Account</Link>
+
+            <div className="md:col-span-2 bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold">Usage This Month</h3>
+                <span className="text-sm text-gray-500">
+                  {userStats?.videos_processed || 0} / {subscription?.platform_limits?.videos || 0} videos
+                </span>
+              </div>
+              
+              <Progress 
+                value={getUsagePercentage()} 
+                className="h-2 mb-6"
+                indicatorClassName={getUsagePercentage() > 80 ? "bg-red-500" : "bg-blue-600"}
+              />
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Videos remaining</p>
+                  <p className="text-2xl font-semibold">{getVideosRemaining()}</p>
+                </div>
+                {getUsagePercentage() > 80 && (
+                  <Button variant="outline" onClick={() => navigate('/settings/subscription')}>
+                    Upgrade for more
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Shortcuts section */}
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <h3 className="text-lg font-semibold mb-6">Quick Actions</h3>
+            
+            <div className="grid gap-4 md:grid-cols-4">
+              <Button 
+                variant="outline" 
+                className="h-auto flex flex-col items-center justify-center p-6 border-dashed"
+                onClick={() => navigate('/connections')}
+              >
+                <Globe className="h-8 w-8 mb-2 text-blue-600" />
+                <span className="text-sm font-medium">Connect Account</span>
               </Button>
-              <Button asChild className="bg-blue-600 hover:bg-blue-700">
-                <Link to="/settings/subscription">Upgrade Plan</Link>
+              
+              <Button 
+                variant="outline" 
+                className="h-auto flex flex-col items-center justify-center p-6 border-dashed"
+                onClick={() => navigate('/content')}
+              >
+                <Upload className="h-8 w-8 mb-2 text-blue-600" />
+                <span className="text-sm font-medium">Upload Content</span>
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="h-auto flex flex-col items-center justify-center p-6 border-dashed"
+                onClick={() => navigate('/workflows/new')}
+              >
+                <Radio className="h-8 w-8 mb-2 text-blue-600" />
+                <span className="text-sm font-medium">Create Workflow</span>
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="h-auto flex flex-col items-center justify-center p-6 border-dashed"
+                onClick={() => navigate('/referrals')}
+              >
+                <Share2 className="h-8 w-8 mb-2 text-blue-600" />
+                <span className="text-sm font-medium">Invite Friends</span>
               </Button>
             </div>
-          </CardFooter>
-        </Card>
-        
-        <div className="grid gap-6 md:grid-cols-2 mb-8">
-          <Card className="bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <User className="mr-2 h-5 w-5 text-blue-600" />
-                Account Settings
-              </CardTitle>
-              <CardDescription>
-                Manage your personal information and preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Update your profile, change your password, and manage your email preferences.
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button asChild className="w-full">
-                <Link to="/settings/account">
-                  Manage Account
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
+          </div>
           
-          <Card className="bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Settings className="mr-2 h-5 w-5 text-blue-600" />
-                Platform Connections
-              </CardTitle>
-              <CardDescription>
-                Connect your social media accounts
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Connect to TikTok, YouTube, Instagram and more platforms to start republishing your content.
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button asChild className="w-full">
-                <Link to="/connections">
-                  Manage Connections
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
+          <div className="grid gap-6 md:grid-cols-2">
+            <PerformanceMetrics data={userStats} />
+            <RecentContent />
+          </div>
         </div>
-        
-        <PerformanceMetrics stats={stats} />
-        
-        <RecentContent recentContent={recentContent || []} />
-      </div>
+      )}
     </div>
   );
 };

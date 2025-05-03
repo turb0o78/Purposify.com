@@ -5,7 +5,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface SubscriptionStatus {
-  plan: 'trial' | 'basic' | 'agency';
+  plan: 'trial' | 'basic' | 'pro' | 'agency';
   is_active: boolean;
   trial_ends_at?: string;
   subscription_ends_at?: string;
@@ -47,6 +47,12 @@ export const useSubscription = () => {
             platformLimits = {
               videos: 25,
               platforms: 1
+            };
+            break;
+          case 'pro':
+            platformLimits = {
+              videos: 50,
+              platforms: 3
             };
             break;
           case 'agency':

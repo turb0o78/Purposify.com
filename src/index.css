@@ -3,7 +3,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 @layer base {
   :root {
@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 261 85% 75%;
+    --primary: 214 100% 50%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -33,7 +33,7 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 261 85% 75%;
+    --ring: 221.2 83.2% 53.3%;
 
     --radius: 0.5rem;
 
@@ -57,7 +57,7 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 261 85% 75%;
+    --primary: 214 100% 50%;
     --primary-foreground: 222.2 47.4% 11.2%;
 
     --secondary: 217.2 32.6% 17.5%;
@@ -74,7 +74,7 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 261 85% 75%;
+    --ring: 224.3 76.3% 48%;
     
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
@@ -98,11 +98,11 @@
   }
 
   .gradient-text {
-    @apply text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-purple-light;
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-500;
   }
   
   .gradient-bg {
-    @apply bg-gradient-to-r from-brand-purple to-brand-purple-light;
+    @apply bg-gradient-to-r from-blue-600 to-blue-500;
   }
   
   .card-hover {
@@ -115,5 +115,21 @@
   
   .platform-youtube {
     @apply bg-red-600 text-white;
+  }
+
+  .feature-check {
+    @apply flex items-center gap-2 mb-4;
+  }
+  
+  .feature-check svg {
+    @apply text-primary h-5 w-5 flex-shrink-0;
+  }
+
+  .price-card {
+    @apply bg-white border border-gray-100 rounded-2xl p-6 flex flex-col h-full;
+  }
+  
+  .price-card.highlighted {
+    @apply bg-primary text-white;
   }
 }

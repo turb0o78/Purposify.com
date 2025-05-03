@@ -33,7 +33,39 @@ export const useSubscription = () => {
         }
 
         console.log("Subscription check result:", data);
-        return data;
+        
+        // Get platform limits based on plan
+        let platformLimits: Record<string, number> = {};
+        switch(data.plan) {
+          case 'trial':
+            platformLimits = {
+              videos: 10,
+              platforms: 1
+            };
+            break;
+          case 'basic':
+            platformLimits = {
+              videos: 25,
+              platforms: 1
+            };
+            break;
+          case 'agency':
+            platformLimits = {
+              videos: 100000, // Effectively unlimited
+              platforms: 5
+            };
+            break;
+          default:
+            platformLimits = {
+              videos: 10,
+              platforms: 1
+            };
+        }
+        
+        return {
+          ...data,
+          platform_limits: platformLimits
+        };
       } catch (error) {
         console.error("Error in useSubscription hook:", error);
         throw error;

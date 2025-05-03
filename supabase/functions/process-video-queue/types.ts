@@ -1,4 +1,41 @@
 
+export interface QueuedVideo {
+  id: string;
+  workflow_id: string;
+  source_platform: string;
+  platform_video_id: string;
+  title: string;
+  description?: string;
+  thumbnail_url?: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  error_message?: string;
+  created_at: string;
+  updated_at?: string;
+  workflow: {
+    id: string;
+    name: string;
+    source_platform: string;
+    target_platform: string;
+    source_connection: {
+      id: string;
+      access_token: string;
+      refresh_token?: string;
+    };
+    target_connection: {
+      id: string;
+      access_token: string;
+      refresh_token?: string;
+    };
+  }
+}
+
+export interface ProcessingResult {
+  videoId: string;
+  status: "completed" | "failed";
+  targetVideoId?: string;
+  error?: string;
+}
+
 export interface VideoData {
   success: boolean;
   videoUrl?: string;
@@ -8,36 +45,12 @@ export interface VideoData {
 export interface UploadResult {
   success: boolean;
   videoId?: string;
-  url?: string;
   error?: string;
 }
 
-export interface ProcessingResult {
-  videoId: string;
-  status: 'completed' | 'failed';
-  targetVideoId?: string;
-  error?: string;
-}
-
-export interface QueuedVideo {
+export interface DriveVideoResponse {
   id: string;
-  workflow_id: string;
-  source_platform: string;
-  platform_video_id: string;
-  title: string | null;
-  description: string | null;
-  workflow: {
-    id: string;
-    name: string;
-    source_platform: string;
-    target_platform: string;
-    source_connection: {
-      access_token: string;
-      [key: string]: any;
-    };
-    target_connection: {
-      access_token: string;
-      [key: string]: any;
-    };
-  };
+  name: string;
+  mimeType: string;
+  webViewLink: string;
 }

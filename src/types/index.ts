@@ -64,3 +64,14 @@ export interface DashboardStats extends ContentStats {
   accounts_connected: number;
   platforms_connected: number;
 }
+
+export interface GoogleDriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  thumbnailLink?: string;
+  webViewLink: string;
+  createdTime: string;
+  modifiedTime: string;
+  size: string;
+}

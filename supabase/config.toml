@@ -20,22 +20,30 @@ port = 54324
 
 [storage]
 enabled = true
-file_size_limit = "50MiB"
-
-[auth]
-enabled = true
-site_url = "https://opaldesign.fr"
-additional_redirect_urls = ["https://opaldesign.fr/*", "http://localhost:3000/*"]
 
 [functions]
+[functions.process-video-queue]
+verify_jwt = true
+[functions.google-drive-oauth]
+verify_jwt = true
+[functions.google-drive-oauth-callback]
+verify_jwt = false
+[functions.google-drive-files]
+verify_jwt = true
+[functions.google-drive-upload]
+verify_jwt = true
 [functions.check-new-videos]
+verify_jwt = true
+[functions.create-checkout]
+verify_jwt = true
+[functions.check-subscription]
 verify_jwt = true
 [functions.fetch-platform-videos]
 verify_jwt = true
-[functions.process-video-queue]
-verify_jwt = true
 [functions.process-video]
 verify_jwt = true
+[functions.stripe-webhook]
+verify_jwt = false
 [functions.tiktok-oauth]
 verify_jwt = true
 [functions.tiktok-oauth-callback]

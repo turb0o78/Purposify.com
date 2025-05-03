@@ -1,0 +1,137 @@
+
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Connection } from "@/types";
+import { toast } from "@/components/ui/use-toast";
+
+interface GoogleDriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  thumbnailLink?: string;
+  webViewLink: string;
+  createdTime: string;
+  modifiedTime: string;
+  size: string;
+}
+
+export function useGoogleDrive() {
+  const { user } = useAuth();
+  const [isUploading, setIsUploading] = useState(false);
+  
+  // Get Google Drive connections
+  const { data: connections, isLoading: connectionsLoading } = useQuery({
+    queryKey: ['google-drive-connections', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('platform_connections')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('platform', 'google_drive');
+        
+      if (error) throw error;
+      
+      return data as Connection[];
+    },
+    enabled: !!user,
+  });
+  
+  // Fetch Google Drive files
+  const fetchFiles = async (connectionId: string, fileType: 'video' | 'image' = 'video') => {
+    if (!user || !connectionId) {
+      throw new Error("User and connection ID are required");
+    }
+    
+    const { data, error } = await supabase.functions.invoke('google-drive-files', {
+      body: {
+        userId: user.id,
+        connectionId,
+        fileType
+      }
+    });
+    
+    if (error) throw error;
+    
+    return data.files as GoogleDriveFile[];
+  };
+  
+  // Query for files in a specific Google Drive account
+  const useFilesQuery = (connectionId?: string) => {
+    return useQuery({
+      queryKey: ['google-drive-files', connectionId],
+      queryFn: () => fetchFiles(connectionId),
+      enabled: !!user && !!connectionId,
+    });
+  };
+  
+  // Upload a video to Google Drive
+  const uploadToGoogleDrive = async ({ 
+    connectionId, 
+    videoUrl, 
+    videoName, 
+    sourceInfo 
+  }: { 
+    connectionId: string;
+    videoUrl: string;
+    videoName: string;
+    sourceInfo?: { platform: string, id: string }
+  }) => {
+    if (!user || !connectionId) {
+      throw new Error("User and connection ID are required");
+    }
+    
+    setIsUploading(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('google-drive-upload', {
+        body: {
+          userId: user.id,
+          connectionId,
+          videoUrl,
+          videoName,
+          sourceInfo
+        }
+      });
+      
+      if (error) throw error;
+      
+      return data;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+  
+  // Mutation for uploading to Google Drive
+  const uploadMutation = useMutation({
+    mutationFn: uploadToGoogleDrive,
+    onSuccess: () => {
+      toast({
+        title: "Upload Successful",
+        description: "Your video has been uploaded to Google Drive",
+      });
+    },
+    onError: (error) => {
+      console.error("Google Drive upload error:", error);
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload to Google Drive",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  return {
+    connections,
+    connectionsLoading,
+    useFilesQuery,
+    uploadToGoogleDrive: uploadMutation.mutate,
+    isUploading: isUploading || uploadMutation.isPending,
+    uploadError: uploadMutation.error,
+  };
+}
+
+export default useGoogleDrive;

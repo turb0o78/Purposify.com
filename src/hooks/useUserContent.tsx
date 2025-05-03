@@ -4,10 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Content } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 
+interface UserContentResponse {
+  items: Content[];
+}
+
 export const useUserContent = () => {
   return useQuery({
     queryKey: ['user-content'],
-    queryFn: async (): Promise<Content[]> => {
+    queryFn: async (): Promise<UserContentResponse> => {
       try {
         const { data, error } = await supabase
           .from('video_queue')
@@ -32,10 +36,10 @@ export const useUserContent = () => {
         }
 
         if (!data || data.length === 0) {
-          return [];
+          return { items: [] };
         }
 
-        return data.map((item): Content => ({
+        const items = data.map((item): Content => ({
           id: item.id,
           sourcePlatform: item.workflows.source_platform,
           targetPlatform: item.workflows.target_platform,
@@ -48,9 +52,11 @@ export const useUserContent = () => {
           status: item.status as Content['status'],
           error: item.error_message,
         }));
+
+        return { items };
       } catch (error) {
         console.error("Error in useUserContent hook:", error);
-        return [];
+        return { items: [] };
       }
     },
     refetchOnWindowFocus: false,

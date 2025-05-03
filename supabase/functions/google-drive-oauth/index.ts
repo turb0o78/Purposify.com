@@ -11,7 +11,7 @@ const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID");
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const APP_URL = Deno.env.get("APP_URL") || "http://localhost:3000";
+const APP_URL = Deno.env.get("APP_URL") || "https://opaldesign.fr"; // Use deployed URL as default
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -71,7 +71,7 @@ serve(async (req) => {
 
     // Create the OAuth authorization URL
     const redirectUri = `${SUPABASE_URL}/functions/v1/google-drive-oauth-callback`;
-    const scope = encodeURIComponent("https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly");
+    const scope = encodeURIComponent("https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile");
     
     // Construct Google OAuth URL
     const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&response_type=code&scope=${scope}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&access_type=offline&prompt=consent`;

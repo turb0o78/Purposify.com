@@ -62,7 +62,10 @@ export function useGoogleDrive() {
       }
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error("Google Drive files error:", error);
+      throw error;
+    }
     
     return data.files as GoogleDriveFile[];
   };
@@ -71,7 +74,7 @@ export function useGoogleDrive() {
   const useFilesQuery = (connectionId?: string) => {
     return useQuery({
       queryKey: ['google-drive-files', connectionId],
-      queryFn: () => fetchFiles(connectionId),
+      queryFn: () => fetchFiles(connectionId as string),
       enabled: !!user && !!connectionId,
     });
   };
@@ -105,7 +108,10 @@ export function useGoogleDrive() {
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Google Drive upload error:", error);
+        throw error;
+      }
       
       return data;
     } finally {
@@ -122,7 +128,7 @@ export function useGoogleDrive() {
         description: "Your video has been uploaded to Google Drive",
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error("Google Drive upload error:", error);
       toast({
         title: "Upload Failed",

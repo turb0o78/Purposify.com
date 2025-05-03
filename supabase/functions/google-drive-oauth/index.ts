@@ -20,8 +20,12 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Google Drive OAuth: Function started");
+    
     // Extract user ID from request body
     const { userId } = await req.json();
+    
+    console.log("Google Drive OAuth: User ID received:", userId);
     
     if (!userId) {
       throw new Error("User ID is required");
@@ -29,8 +33,11 @@ serve(async (req) => {
     
     // Check if we have necessary credentials
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      console.error("Google Drive OAuth: Missing Google API credentials");
       throw new Error("Google API credentials not configured");
     }
+
+    console.log("Google Drive OAuth: Credentials checked");
 
     // Create a random state identifier for this OAuth flow
     const state = crypto.randomUUID();
@@ -46,12 +53,16 @@ serve(async (req) => {
         created_at: new Date().toISOString()
       });
 
+    console.log("Google Drive OAuth: State stored in database");
+
     // Create the OAuth authorization URL
     const redirectUri = `${SUPABASE_URL}/functions/v1/google-drive-oauth-callback`;
     const scope = encodeURIComponent("https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly");
     
     // Construct Google OAuth URL
     const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&response_type=code&scope=${scope}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&access_type=offline&prompt=consent`;
+    
+    console.log("Google Drive OAuth: OAuth URL created");
     
     return new Response(
       JSON.stringify({ url }),

@@ -22,11 +22,19 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Google Drive OAuth Callback: Function started");
+    
     // Get URL and search parameters
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
     const state = url.searchParams.get("state");
     const error = url.searchParams.get("error");
+    
+    console.log("Google Drive OAuth Callback: Received parameters", { 
+      hasCode: !!code, 
+      hasState: !!state, 
+      hasError: !!error 
+    });
     
     // Create Supabase admin client
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -39,6 +47,7 @@ serve(async (req) => {
     
     // Check if we have the necessary parameters
     if (!code || !state) {
+      console.error("Missing required OAuth parameters");
       return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent("Missing required OAuth parameters")}`);
     }
     
@@ -56,6 +65,7 @@ serve(async (req) => {
     }
     
     const userId = stateData.user_id;
+    console.log("Google Drive OAuth Callback: State verified for user", userId);
     
     // Exchange the code for access and refresh tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -72,13 +82,16 @@ serve(async (req) => {
       }),
     });
     
+    const tokenResponseText = await tokenResponse.text();
+    console.log("Google Drive OAuth Callback: Token response status", tokenResponse.status);
+    
     if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error("Token exchange failed:", errorText);
-      return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent("Failed to exchange auth code")}`);
+      console.error("Token exchange failed:", tokenResponseText);
+      return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent("Failed to exchange auth code: " + tokenResponseText)}`);
     }
     
-    const tokenData = await tokenResponse.json();
+    const tokenData = JSON.parse(tokenResponseText);
+    console.log("Google Drive OAuth Callback: Token obtained successfully");
     
     // Get user info to display in the UI
     const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -88,11 +101,13 @@ serve(async (req) => {
     });
     
     if (!userInfoResponse.ok) {
-      console.error("Failed to get user info");
-      return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent("Failed to get user info")}`);
+      const errorText = await userInfoResponse.text();
+      console.error("Failed to get user info:", errorText);
+      return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent("Failed to get user info: " + errorText)}`);
     }
     
     const userInfo = await userInfoResponse.json();
+    console.log("Google Drive OAuth Callback: User info obtained");
     
     // Store the connection in Supabase
     const { error: insertError } = await supabaseAdmin
@@ -111,14 +126,18 @@ serve(async (req) => {
     
     if (insertError) {
       console.error("Failed to store connection:", insertError);
-      return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent("Failed to store connection")}`);
+      return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent("Failed to store connection: " + insertError.message)}`);
     }
+    
+    console.log("Google Drive OAuth Callback: Connection stored successfully");
     
     // Delete the used state to prevent replay attacks
     await supabaseAdmin
       .from('oauth_states')
       .delete()
       .eq('state', state);
+    
+    console.log("Google Drive OAuth Callback: State record deleted");
     
     // Redirect back to the app with success
     return Response.redirect(`${APP_URL}/connections?success=true`);

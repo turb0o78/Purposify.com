@@ -1,9 +1,18 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Connection } from "@/types";
-import { InstagramIcon, FacebookIcon, TiktokIcon, YoutubeIcon } from "@/components/icons";
+import { 
+  InstagramIcon, 
+  FacebookIcon, 
+  TiktokIcon, 
+  YoutubeIcon, 
+  GoogleDriveIcon,
+  DropboxIcon,
+  PinterestIcon
+} from "@/components/icons";
 import { toast } from "@/components/ui/use-toast";
 
 interface ConnectionCardProps {
@@ -34,6 +43,12 @@ const ConnectionCard = ({
         return <InstagramIcon />;
       case "facebook":
         return <FacebookIcon />;
+      case "google_drive":
+        return <GoogleDriveIcon />;
+      case "dropbox":
+        return <DropboxIcon />;
+      case "pinterest":
+        return <PinterestIcon />;
       default:
         return null;
     }
@@ -49,6 +64,12 @@ const ConnectionCard = ({
         return "bg-gradient-to-r from-purple-500 to-pink-500";
       case "facebook":
         return "bg-blue-600";
+      case "google_drive":
+        return "bg-green-500";
+      case "dropbox":
+        return "bg-blue-400";
+      case "pinterest":
+        return "bg-red-600";
       default:
         return "bg-gray-200 text-gray-800";
     }
@@ -64,6 +85,12 @@ const ConnectionCard = ({
         return "Instagram";
       case "facebook":
         return "Facebook";
+      case "google_drive":
+        return "Google Drive";
+      case "dropbox":
+        return "Dropbox";
+      case "pinterest":
+        return "Pinterest";
       default:
         return platform;
     }
@@ -126,13 +153,25 @@ const ConnectionCard = ({
       <CardContent>
         {connection.status === "connected" ? (
           <div className="text-sm text-gray-500">
-            <p>Last synced: {new Date().toLocaleDateString()}</p>
+            <p>Last synced: {connection.connected_at ? new Date(connection.connected_at).toLocaleDateString() : new Date().toLocaleDateString()}</p>
           </div>
         ) : (
           <p className="text-sm text-gray-500">
             {connection.platform === "tiktok" 
               ? "Access your TikTok videos for repurposing to other platforms." 
-              : "Publish your repurposed content directly to your YouTube channel."}
+              : connection.platform === "youtube"
+              ? "Publish your repurposed content directly to your YouTube channel."
+              : connection.platform === "instagram"
+              ? "Share your content on Instagram without watermarks."
+              : connection.platform === "facebook"
+              ? "Publish your videos directly to your Facebook page."
+              : connection.platform === "google_drive"
+              ? "Store and access your videos from Google Drive."
+              : connection.platform === "dropbox"
+              ? "Sync your content with your Dropbox account."
+              : connection.platform === "pinterest"
+              ? "Share your content as pins on Pinterest."
+              : "Connect to access your content and publish to this platform."}
           </p>
         )}
       </CardContent>

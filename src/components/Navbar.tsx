@@ -17,7 +17,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Settings, User, Package, Users } from "lucide-react";
+import { 
+  Settings, 
+  User, 
+  Package, 
+  Users, 
+  LayoutDashboard, 
+  Connection, 
+  Workflow,
+  FileVideo, 
+  Repeat, 
+  Plus 
+} from "lucide-react";
 import PurposifyLogo from "./PurposifyLogo";
 
 interface NavLink {
@@ -36,22 +47,27 @@ const Navbar = () => {
     {
       name: "Dashboard",
       path: "/dashboard",
+      icon: <LayoutDashboard className="h-4 w-4 mr-1" />
     },
     {
       name: "Content",
       path: "/content",
+      icon: <FileVideo className="h-4 w-4 mr-1" />
     },
     {
       name: "Workflows",
       path: "/workflows",
+      icon: <Workflow className="h-4 w-4 mr-1" />
     },
     {
       name: "Contenu Republié",
       path: "/republished-content",
+      icon: <Repeat className="h-4 w-4 mr-1" />
     },
     {
       name: "Connections",
       path: "/connections",
+      icon: <Connection className="h-4 w-4 mr-1" />
     },
     {
       name: "Parrainage",

@@ -1,3 +1,4 @@
+
 import { useUserStats } from "@/hooks/useUserStats";
 import { useUserContent } from "@/hooks/useUserContent";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -9,10 +10,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Package, Settings, User, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useAuth, useNavigate, useToast } from "@/hooks";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { Globe, Upload, Radio, Share2 } from "lucide-react";
+import { Content } from "@/types";
 
 interface DashboardStats {
   videos_processed: number;
@@ -21,12 +25,13 @@ interface DashboardStats {
   views: number;
   likes: number;
   comments: number;
-  platforms_connected: number; // Added this property
+  platforms_connected: number; 
 }
 
 const Dashboard = () => {
   const { user } = useAuth();
   const { data: userStats, isLoading: statsLoading } = useUserStats();
+  const { data: userContent } = useUserContent();
   const { data: subscription, isLoading: subscriptionLoading } = useSubscription();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -80,6 +85,12 @@ const Dashboard = () => {
     }
   };
 
+  // Get recent content items
+  const getRecentContent = (): Content[] => {
+    if (!userContent?.items) return [];
+    return userContent.items.slice(0, 4);
+  };
+
   return (
     <div className="container px-4 py-8 mx-auto max-w-7xl">
       <DashboardHeader 
@@ -105,12 +116,14 @@ const Dashboard = () => {
               value={userStats?.videos_processed || 0}
               trend={10}
               trendLabel="vs. last month"
+              trendDirection="up"
             />
             <StatCard
               title="Videos Published"
               value={userStats?.videos_published || 0}
               trend={5}
               trendLabel="vs. last month"
+              trendDirection="up"
             />
             <StatCard
               title="Accounts Connected"
@@ -171,9 +184,9 @@ const Dashboard = () => {
               </div>
               
               <Progress 
-                value={getUsagePercentage()} 
+                value={getUsagePercentage()}
                 className="h-2 mb-6"
-                indicatorClassName={getUsagePercentage() > 80 ? "bg-red-500" : "bg-blue-600"}
+                indicatorColor={getUsagePercentage() > 80 ? "bg-red-500" : "bg-blue-600"}
               />
               
               <div className="flex items-center justify-between">
@@ -234,8 +247,8 @@ const Dashboard = () => {
           </div>
           
           <div className="grid gap-6 md:grid-cols-2">
-            <PerformanceMetrics data={userStats} />
-            <RecentContent />
+            <PerformanceMetrics stats={userStats} />
+            <RecentContent recentContent={getRecentContent()} />
           </div>
         </div>
       )}

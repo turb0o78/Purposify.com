@@ -1,3 +1,4 @@
+
 export type Platform = "tiktok" | "youtube" | "instagram" | "facebook";
 
 export type ConnectionStatus = "connected" | "disconnected" | "pending";
@@ -58,10 +59,8 @@ export interface ContentStats {
 }
 
 export interface DashboardStats extends ContentStats {
-  // We're keeping the structure simple as we're using ContentStats directly
-  // The comment about expanding later with time-based structure remains for future reference
-  // today: ContentStats;
-  // week: ContentStats;
-  // month: ContentStats;
-  // total: ContentStats;
+  videos_processed: number;
+  videos_published: number;
+  accounts_connected: number;
+  platforms_connected: number;
 }

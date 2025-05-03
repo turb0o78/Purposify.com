@@ -31,7 +31,7 @@ export function useGoogleDrive() {
         .from('platform_connections')
         .select('*')
         .eq('user_id', user.id)
-        .eq('platform', 'google_drive' as Platform); // Cast to Platform type
+        .eq('platform', 'google_drive');
         
       if (error) throw error;
       

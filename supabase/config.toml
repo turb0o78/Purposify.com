@@ -24,8 +24,8 @@ pop3_port = 54326
 file_size_limit = "50MiB"
 
 [auth]
-site_url = "https://opaldesign.fr" 
-additional_redirect_urls = ["https://localhost:3000", "https://opaldesign.fr"]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
 jwt_expiry = 3600
 enable_signup = true
 

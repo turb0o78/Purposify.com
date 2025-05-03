@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ const Index = () => {
   const [selectedBillingCycle, setSelectedBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const videoRef = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
 
   // Handle scroll events
   useEffect(() => {
@@ -30,6 +32,14 @@ const Index = () => {
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Add a slight delay before showing the video to ensure it loads properly
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setVideoLoaded(true);
+    }, 1000);
+    return () => clearTimeout(timer);
   }, []);
 
   const features = [
@@ -227,17 +237,23 @@ const Index = () => {
               </div>
             </div>
             
-            {/* Demo section image */}
+            {/* Demo Video section */}
             <div className="md:w-1/2 relative" ref={videoRef}>
               <div className="absolute -inset-4 bg-blue-100/30 rounded-full blur-3xl opacity-70 blob-animation"></div>
               <div className="relative">
                 <div className="aspect-video bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-xl shadow-blue-100/50">
-                  <img 
-                    src="/lovable-uploads/7de1f90f-28ea-411c-95ea-f78e347ff07a.png" 
-                    alt="Purposify Demo" 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                  {videoLoaded && (
+                    <div className="w-full h-full">
+                      <iframe 
+                        src="https://player.vimeo.com/video/1081138035?h=750b66a650&autoplay=1&loop=1&background=1&quality=auto" 
+                        className="w-full h-full"
+                        frameBorder="0" 
+                        allow="autoplay; fullscreen; picture-in-picture" 
+                        allowFullScreen
+                        title="Purposify Demo Video"
+                      ></iframe>
+                    </div>
+                  )}
                   <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-gray-700 flex items-center">
                     <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
                     Live Demo

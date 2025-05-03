@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Connection, Platform } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -164,8 +165,11 @@ const Connections = () => {
     try {
       console.log(`Initiating ${platform} OAuth flow for user ${user.id}`);
       
+      // Fix: Use "google-drive" instead of "google_drive" when making the function call
+      const functionName = platform === "google_drive" ? "google-drive-oauth" : `${platform}-oauth`;
+      
       // Include userId in the request body as a fallback for auth issues
-      const { data, error } = await supabase.functions.invoke(`${platform}-oauth`, {
+      const { data, error } = await supabase.functions.invoke(functionName, {
         body: { userId: user.id }
       });
 

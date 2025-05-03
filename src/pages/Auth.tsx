@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
+import { ArrowLeft } from "lucide-react";
+import PurposifyLogo from "@/components/PurposifyLogo";
 
 const Auth = () => {
   const { user } = useAuth();
@@ -132,8 +134,19 @@ const Auth = () => {
   
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-white p-4">
+      <div className="w-full max-w-md mb-6">
+        <Button 
+          variant="ghost" 
+          className="flex items-center gap-2 text-gray-600 hover:text-blue-600"
+          onClick={() => navigate('/')}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to home
+        </Button>
+      </div>
+      
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-blue-600 mb-2">ReelStreamForge</h1>
+        <PurposifyLogo className="mx-auto mb-4" />
         <p className="text-gray-600">Expand your content across platforms effortlessly</p>
       </div>
       
@@ -240,8 +253,8 @@ const Auth = () => {
               
               <p className="text-xs text-center text-gray-500 mt-4">
                 By creating an account, you agree to our 
-                <a href="/terms" className="text-blue-600 hover:underline"> Terms of Service</a> and 
-                <a href="/privacy" className="text-blue-600 hover:underline"> Privacy Policy</a>
+                <Link to="/terms" className="text-blue-600 hover:underline"> Terms of Service</Link> and 
+                <Link to="/privacy" className="text-blue-600 hover:underline"> Privacy Policy</Link>
               </p>
             </form>
           </TabsContent>

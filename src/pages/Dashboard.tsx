@@ -87,8 +87,8 @@ const Dashboard = () => {
 
   // Get recent content items
   const getRecentContent = (): Content[] => {
-    if (!userContent?.items) return [];
-    return userContent.items.slice(0, 4);
+    if (!userContent) return [];
+    return userContent.slice(0, 4);
   };
 
   return (

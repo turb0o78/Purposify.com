@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -126,7 +125,7 @@ const Index = () => {
 
   const testimonials = [
     {
-      content: "ReelStreamForge has completely transformed how I manage my content. I'm saving hours every week!",
+      content: "Purposify has completely transformed how I manage my content. I'm saving hours every week!",
       author: "Sarah Johnson",
       title: "Content Creator"
     },
@@ -227,6 +226,8 @@ const Index = () => {
                 </div>
               </div>
             </div>
+            
+            {/* Demo section image */}
             <div className="md:w-1/2 relative" ref={videoRef}>
               <div className="absolute -inset-4 bg-blue-100/30 rounded-full blur-3xl opacity-70 blob-animation"></div>
               <div className="relative">
@@ -281,7 +282,7 @@ const Index = () => {
       <section className="py-20 bg-gray-50" id="how-it-works">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">How ReelStreamForge Works</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">How Purposify Works</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Three simple steps to transform your content strategy
             </p>

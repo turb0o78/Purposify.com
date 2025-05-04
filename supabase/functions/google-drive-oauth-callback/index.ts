@@ -9,11 +9,9 @@ const corsHeaders = {
 
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID");
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET");
-const REDIRECT_URI = `${Deno.env.get("SUPABASE_URL")}/functions/v1/google-drive-oauth-callback`;
-const APP_URL = Deno.env.get("APP_URL") || "http://localhost:3000";
-
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const APP_URL = Deno.env.get("APP_URL") || "https://reel-stream-forge.lovable.app";
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -24,50 +22,38 @@ serve(async (req) => {
   try {
     console.log("Google Drive OAuth Callback: Function started");
     
-    // Get URL and search parameters
+    // Get the authorization code and state from the URL
     const url = new URL(req.url);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
-    const error = url.searchParams.get("error");
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
     
-    console.log("Google Drive OAuth Callback: Received parameters", { 
-      hasCode: !!code, 
-      hasState: !!state, 
-      hasError: !!error 
-    });
+    console.log(`Google Drive OAuth Callback: Code received: ${code ? "Yes" : "No"}, State: ${state}`);
+    
+    if (!code || !state) {
+      throw new Error("Missing code or state in callback URL");
+    }
     
     // Create Supabase admin client
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
-    // Check if there was an error in the OAuth flow
-    if (error) {
-      console.error("OAuth error:", error);
-      return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent(error)}`);
-    }
-    
-    // Check if we have the necessary parameters
-    if (!code || !state) {
-      console.error("Missing required OAuth parameters");
-      return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent("Missing required OAuth parameters")}`);
-    }
-    
-    // Verify the state to prevent CSRF
-    const { data: stateData, error: stateError } = await supabaseAdmin
+    // Get the stored state from database
+    console.log(`Google Drive OAuth Callback: Looking up state ${state} in database`);
+    const { data: storedState, error: stateError } = await supabaseAdmin
       .from('oauth_states')
-      .select('user_id')
+      .select('user_id, provider')
       .eq('state', state)
-      .eq('provider', 'google_drive')
       .single();
     
-    if (stateError || !stateData) {
-      console.error("State verification failed:", stateError);
-      return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent("Invalid OAuth state")}`);
+    if (stateError || !storedState) {
+      console.error("Google Drive OAuth Callback: Invalid state:", stateError);
+      throw new Error("Invalid state. Please try again");
     }
     
-    const userId = stateData.user_id;
-    console.log("Google Drive OAuth Callback: State verified for user", userId);
+    console.log(`Google Drive OAuth Callback: State valid for user ${storedState.user_id}`);
     
-    // Exchange the code for access and refresh tokens
+    // Exchange the code for tokens
+    console.log("Google Drive OAuth Callback: Exchanging code for token");
+    const redirectUri = `${SUPABASE_URL}/functions/v1/google-drive-oauth-callback`;
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
@@ -75,75 +61,90 @@ serve(async (req) => {
       },
       body: new URLSearchParams({
         code,
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: REDIRECT_URI,
+        client_id: GOOGLE_CLIENT_ID || "",
+        client_secret: GOOGLE_CLIENT_SECRET || "",
+        redirect_uri: redirectUri,
         grant_type: 'authorization_code',
       }),
     });
     
-    const tokenResponseText = await tokenResponse.text();
-    console.log("Google Drive OAuth Callback: Token response status", tokenResponse.status);
+    const tokenData = await tokenResponse.json();
     
     if (!tokenResponse.ok) {
-      console.error("Token exchange failed:", tokenResponseText);
-      return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent("Failed to exchange auth code: " + tokenResponseText)}`);
+      console.error("Google Drive OAuth Callback: Token error:", tokenData);
+      throw new Error("Failed to exchange code for token");
     }
     
-    const tokenData = JSON.parse(tokenResponseText);
-    console.log("Google Drive OAuth Callback: Token obtained successfully");
+    console.log("Google Drive OAuth Callback: Token received successfully");
     
-    // Correction : Utiliser le bon endpoint et utiliser access_token correctement
-    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    // Get user info
+    console.log("Google Drive OAuth Callback: Getting user info");
+    const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
       },
     });
     
-    if (!userInfoResponse.ok) {
-      const errorText = await userInfoResponse.text();
-      console.error("Failed to get user info:", errorText);
-      return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent("Failed to get user info: " + errorText)}`);
+    const userData = await userResponse.json();
+    
+    if (!userResponse.ok) {
+      console.error("Google Drive OAuth Callback: Failed to get user info:", userData);
+      throw new Error(`Failed to get user info: ${JSON.stringify(userData)}`);
     }
     
-    const userInfo = await userInfoResponse.json();
-    console.log("Google Drive OAuth Callback: User info obtained", userInfo);
+    console.log("Google Drive OAuth Callback: User info received successfully");
     
-    // Store the connection in Supabase
-    const { error: insertError } = await supabaseAdmin
+    // Save the connection to database
+    const expiresAt = new Date();
+    expiresAt.setSeconds(expiresAt.getSeconds() + tokenData.expires_in);
+    
+    console.log(`Google Drive OAuth Callback: Saving connection for user ${storedState.user_id}`);
+    
+    const { error: connectionError } = await supabaseAdmin
       .from('platform_connections')
-      .insert({
-        user_id: userId,
+      .upsert({
+        user_id: storedState.user_id,
         platform: 'google_drive',
-        platform_user_id: userInfo.sub, // Google user ID est dans sub
-        platform_username: userInfo.email,
-        platform_avatar_url: userInfo.picture,
+        platform_user_id: userData.id,
+        platform_username: userData.email || "Google Drive User",
+        platform_avatar_url: userData.picture || null,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
-        expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
-        token_metadata: tokenData
+        expires_at: expiresAt.toISOString(),
       });
     
-    if (insertError) {
-      console.error("Failed to store connection:", insertError);
-      return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent("Failed to store connection: " + insertError.message)}`);
+    if (connectionError) {
+      console.error("Google Drive OAuth Callback: Failed to save connection:", connectionError);
+      throw new Error("Failed to save connection");
     }
     
-    console.log("Google Drive OAuth Callback: Connection stored successfully");
+    console.log("Google Drive OAuth Callback: Connection saved successfully");
     
-    // Delete the used state to prevent replay attacks
+    // Delete the used state
     await supabaseAdmin
       .from('oauth_states')
       .delete()
       .eq('state', state);
     
-    console.log("Google Drive OAuth Callback: State record deleted");
+    console.log("Google Drive OAuth Callback: Redirecting to app");
     
-    // Redirect back to the app with success
-    return Response.redirect(`${APP_URL}/connections?success=true`);
-    
+    // Redirect back to the app
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...corsHeaders,
+        'Location': `${APP_URL}/connections?success=true`,
+      },
+    });
   } catch (error) {
     console.error("Google Drive OAuth Callback Error:", error);
-    return Response.redirect(`${APP_URL}/connections?error=${encodeURIComponent(error.message)}`);
+    
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...corsHeaders,
+        'Location': `${APP_URL}/connections?error=${encodeURIComponent(error.message)}`,
+      },
+    });
   }
 });

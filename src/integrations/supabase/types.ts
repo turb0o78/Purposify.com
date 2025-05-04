@@ -475,7 +475,7 @@ export type Database = {
       }
     }
     Enums: {
-      platform_type: "tiktok" | "youtube"
+      platform_type: "tiktok" | "youtube" | "google_drive"
       subscription_plan: "trial" | "basic" | "agency"
     }
     CompositeTypes: {
@@ -592,7 +592,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      platform_type: ["tiktok", "youtube"],
+      platform_type: ["tiktok", "youtube", "google_drive"],
       subscription_plan: ["trial", "basic", "agency"],
     },
   },

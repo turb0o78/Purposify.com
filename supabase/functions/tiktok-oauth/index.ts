@@ -67,17 +67,20 @@ serve(async (req) => {
     const csrfToken = crypto.randomUUID();
     const state = `${user.id}_${csrfToken}`;
     
+    // Use the most comprehensive scopes available for TikTok API v2
+    const scopes = 'user.info.basic,video.list,video.upload,video.publish';
+    
     // Format params exactly as required by TikTok documentation
     const params = new URLSearchParams();
     params.append('client_key', clientKey);
     params.append('response_type', 'code');
-    params.append('scope', 'user.info.basic,video.list,video.upload');
+    params.append('scope', scopes);
     params.append('redirect_uri', redirectUri);
     params.append('state', state);
-    params.append('disable_auto_auth', '1'); // Force the authorization screen to show
     
     const authUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`;
     console.log('Authorization URL:', authUrl);
+    console.log('Requested scopes:', scopes);
 
     return new Response(
       JSON.stringify({ url: authUrl }),

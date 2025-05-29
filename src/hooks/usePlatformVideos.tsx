@@ -66,10 +66,15 @@ export const usePlatformVideos = () => {
         if (!data?.videos || !Array.isArray(data.videos)) {
           console.warn("Aucune vidéo trouvée dans la réponse de l'API", data);
           
-          toast({
-            title: "Aucune vidéo trouvée",
-            description: "Nous n'avons trouvé aucune vidéo pour vos comptes connectés.",
-          });
+          // Ne pas afficher de toast d'erreur si c'est juste qu'il n'y a pas de vidéos
+          if (data?.videos && Array.isArray(data.videos) && data.videos.length === 0) {
+            console.log("Tableau de vidéos vide - normal si aucune connexion ou vidéos");
+          } else {
+            toast({
+              title: "Aucune vidéo trouvée",
+              description: "Nous n'avons trouvé aucune vidéo pour vos comptes connectés.",
+            });
+          }
           
           return [];
         }
@@ -81,6 +86,22 @@ export const usePlatformVideos = () => {
           ...video,
           createdAt: new Date(video.createdAt)
         }));
+        
+        // Afficher un message de succès si on a des vraies vidéos (pas des demos)
+        const realVideos = parsedVideos.filter(v => 
+          !v.id.includes('demo') && 
+          !v.id.includes('mock') && 
+          !v.id.includes('error') && 
+          !v.id.includes('connected')
+        );
+        
+        if (realVideos.length > 0) {
+          console.log(`${realVideos.length} vraies vidéos trouvées`);
+          toast({
+            title: "Vidéos chargées avec succès",
+            description: `${realVideos.length} vidéo(s) trouvée(s) sur vos plateformes connectées`,
+          });
+        }
         
         return parsedVideos;
       } catch (error) {
@@ -96,9 +117,9 @@ export const usePlatformVideos = () => {
         return [];
       }
     },
-    retry: 3, // Augmenter le nombre de tentatives
+    retry: 2, // Réduire le nombre de tentatives pour éviter les spams
     refetchOnWindowFocus: false,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchInterval: 5 * 60 * 1000, // Rafraîchir toutes les 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes - augmenter le stale time
+    refetchInterval: false, // Désactiver le rafraîchissement automatique pour éviter les appels excessifs
   });
 };

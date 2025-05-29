@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -44,13 +45,13 @@ serve(async (req) => {
     
     const videos = [];
 
-    // Handle TikTok connection
+    // Handle TikTok connection with corrected API calls
     const tiktokConnection = connections?.find(c => c.platform === 'tiktok');
     if (tiktokConnection) {
       console.log(`Found TikTok connection: ${tiktokConnection.platform_username}`);
       
       try {
-        // First, try to get user info to verify the connection
+        // Check if token is valid by testing user info endpoint first
         const userInfoResponse = await fetch(
           'https://open.tiktokapis.com/v2/user/info/', {
           method: 'POST',
@@ -65,204 +66,203 @@ serve(async (req) => {
         
         console.log(`TikTok user info response status: ${userInfoResponse.status}`);
         
-        if (userInfoResponse.ok) {
-          const userInfo = await userInfoResponse.json();
-          console.log('TikTok user info:', JSON.stringify(userInfo, null, 2));
+        if (userInfoResponse.status === 401) {
+          console.log('TikTok token expired, attempting refresh...');
           
-          // Try to fetch videos using the video list endpoint
-          const videosResponse = await fetch(
-            'https://open.tiktokapis.com/v2/video/list/', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${tiktokConnection.access_token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              fields: [
-                "id", 
-                "title", 
-                "video_description", 
-                "duration", 
-                "cover_image_url", 
-                "share_url",
-                "create_time",
-                "view_count",
-                "like_count",
-                "comment_count",
-                "share_count"
-              ],
-              max_count: 20
-            })
-          });
-          
-          console.log(`TikTok videos response status: ${videosResponse.status}`);
-          const videosText = await videosResponse.text();
-          console.log(`TikTok videos response: ${videosText.substring(0, 500)}...`);
-          
-          if (videosResponse.ok) {
-            try {
-              const videosData = JSON.parse(videosText);
-              
-              if (videosData.data && videosData.data.videos && Array.isArray(videosData.data.videos)) {
-                console.log(`Found ${videosData.data.videos.length} real TikTok videos`);
-                
-                const tiktokVideos = videosData.data.videos.map(video => ({
-                  id: video.id || `tiktok-${Date.now()}-${Math.random()}`,
-                  platform: 'tiktok',
-                  title: video.title || 'TikTok Video',
-                  description: video.video_description || '',
-                  thumbnail: video.cover_image_url,
-                  duration: video.duration,
-                  createdAt: video.create_time ? new Date(video.create_time * 1000).toISOString() : new Date().toISOString(),
-                  shareUrl: video.share_url,
-                  viewCount: video.view_count || 0,
-                  likeCount: video.like_count || 0,
-                  commentCount: video.comment_count || 0,
-                  shareCount: video.share_count || 0
-                }));
-                
-                videos.push(...tiktokVideos);
-              } else {
-                console.log('No videos in TikTok response or error:', videosData);
-                
-                // For sandbox mode, create realistic demo videos based on the connected account
-                console.log('Creating sandbox demo videos for connected TikTok account');
-                const demoVideos = [
-                  {
-                    id: `tiktok-demo-${tiktokConnection.platform_user_id}-1`,
-                    platform: 'tiktok',
-                    title: `Vidéo de ${tiktokConnection.platform_username || 'Votre compte TikTok'}`,
-                    description: `Contenu créé par ${tiktokConnection.platform_username || 'votre compte'} - Mode sandbox TikTok`,
-                    thumbnail: 'https://via.placeholder.com/480x640.png?text=TikTok+Connecté',
-                    duration: 30,
-                    createdAt: new Date().toISOString(),
-                    shareUrl: `https://www.tiktok.com/@${tiktokConnection.platform_username || 'user'}/video/demo1`,
-                    viewCount: 1500,
-                    likeCount: 150,
-                    commentCount: 25,
-                    shareCount: 10
-                  },
-                  {
-                    id: `tiktok-demo-${tiktokConnection.platform_user_id}-2`,
-                    platform: 'tiktok',
-                    title: `Nouveau contenu de ${tiktokConnection.platform_username || 'Votre compte TikTok'}`,
-                    description: `Dernière publication de ${tiktokConnection.platform_username || 'votre compte'} - Mode sandbox`,
-                    thumbnail: 'https://via.placeholder.com/480x640.png?text=TikTok+Connecté+2',
-                    duration: 45,
-                    createdAt: new Date(Date.now() - 86400000).toISOString(),
-                    shareUrl: `https://www.tiktok.com/@${tiktokConnection.platform_username || 'user'}/video/demo2`,
-                    viewCount: 2300,
-                    likeCount: 280,
-                    commentCount: 42,
-                    shareCount: 18
-                  }
-                ];
-                videos.push(...demoVideos);
-              }
-            } catch (parseError) {
-              console.error('Error parsing TikTok videos response:', parseError);
-              throw new Error(`Failed to parse TikTok videos: ${parseError.message}`);
-            }
-          } else {
-            console.error(`TikTok videos API error: ${videosResponse.status} - ${videosText}`);
+          // Attempt token refresh
+          if (tiktokConnection.refresh_token) {
+            const refreshResponse = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: new URLSearchParams({
+                client_key: Deno.env.get('TIKTOK_CLIENT_KEY') || '',
+                client_secret: Deno.env.get('TIKTOK_CLIENT_SECRET') || '',
+                grant_type: 'refresh_token',
+                refresh_token: tiktokConnection.refresh_token,
+              }).toString(),
+            });
             
-            // Check if token is expired and try to refresh
-            if (videosResponse.status === 401 && tiktokConnection.refresh_token) {
-              console.log('Attempting to refresh TikTok token...');
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json();
+              console.log('Successfully refreshed TikTok token');
               
-              const refreshResponse = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                  client_key: Deno.env.get('TIKTOK_CLIENT_KEY') || '',
-                  client_secret: Deno.env.get('TIKTOK_CLIENT_SECRET') || '',
-                  grant_type: 'refresh_token',
-                  refresh_token: tiktokConnection.refresh_token,
-                }).toString(),
-              });
+              // Update token in database
+              const { error: updateError } = await supabaseClient
+                .from('platform_connections')
+                .update({
+                  access_token: refreshData.access_token,
+                  refresh_token: refreshData.refresh_token || tiktokConnection.refresh_token,
+                  expires_at: new Date(Date.now() + (refreshData.expires_in * 1000)).toISOString(),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', tiktokConnection.id);
               
-              if (refreshResponse.ok) {
-                const refreshData = await refreshResponse.json();
-                console.log('Successfully refreshed TikTok token');
-                
-                // Update the token in database
-                const { error: updateError } = await supabaseClient
-                  .from('platform_connections')
-                  .update({
-                    access_token: refreshData.access_token,
-                    refresh_token: refreshData.refresh_token || tiktokConnection.refresh_token,
-                    expires_at: new Date(Date.now() + (refreshData.expires_in * 1000)).toISOString(),
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', tiktokConnection.id);
-                
-                if (!updateError) {
-                  return new Response(
-                    JSON.stringify({ 
-                      videos: [],
-                      message: "Token TikTok rafraîchi. Veuillez réessayer." 
-                    }),
-                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-                  );
-                }
+              if (!updateError) {
+                // Use the new token for subsequent requests
+                tiktokConnection.access_token = refreshData.access_token;
               }
+            } else {
+              console.error('Failed to refresh TikTok token');
+              throw new Error('TikTok token expired and refresh failed');
             }
-            
-            // Create fallback demo videos for connected account
-            const fallbackVideos = [
-              {
-                id: `tiktok-connected-${tiktokConnection.platform_user_id}`,
-                platform: 'tiktok',
-                title: `Compte TikTok connecté: ${tiktokConnection.platform_username}`,
-                description: 'Votre compte TikTok est connecté avec succès. Les vidéos apparaîtront ici.',
-                thumbnail: 'https://via.placeholder.com/480x640.png?text=Compte+TikTok+Connecté',
-                duration: 30,
-                createdAt: new Date().toISOString(),
-                shareUrl: 'https://www.tiktok.com/connected',
-                viewCount: 0,
-                likeCount: 0,
-                commentCount: 0,
-                shareCount: 0
-              }
-            ];
-            videos.push(...fallbackVideos);
           }
-        } else {
-          console.error(`TikTok user info error: ${userInfoResponse.status}`);
-          
-          // Create basic demo video for connected account
-          const basicDemo = [
-            {
-              id: `tiktok-basic-${tiktokConnection.platform_user_id}`,
-              platform: 'tiktok',
-              title: `Compte connecté: ${tiktokConnection.platform_username}`,
-              description: 'Connexion TikTok établie',
-              thumbnail: 'https://via.placeholder.com/480x640.png?text=TikTok',
-              duration: 30,
-              createdAt: new Date().toISOString(),
-              shareUrl: 'https://www.tiktok.com',
-              viewCount: 0,
-              likeCount: 0,
-              commentCount: 0,
-              shareCount: 0
-            }
-          ];
-          videos.push(...basicDemo);
         }
         
-      } catch (error) {
-        console.error('Error fetching TikTok data:', error);
+        // Now try to fetch videos using the correct TikTok API v2 endpoint
+        console.log('Fetching TikTok videos using /v2/video/query/ endpoint...');
         
-        // Always provide at least one demo video showing the connection exists
-        const errorDemo = [
-          {
-            id: `tiktok-error-${tiktokConnection.platform_user_id}`,
+        const videosResponse = await fetch(
+          'https://open.tiktokapis.com/v2/video/query/', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${tiktokConnection.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fields: [
+              "id", 
+              "title", 
+              "video_description", 
+              "duration", 
+              "cover_image_url", 
+              "share_url",
+              "create_time",
+              "view_count",
+              "like_count",
+              "comment_count",
+              "share_count",
+              "embed_link"
+            ],
+            max_count: 20,
+            cursor: 0
+          })
+        });
+        
+        console.log(`TikTok videos response status: ${videosResponse.status}`);
+        const videosText = await videosResponse.text();
+        console.log(`TikTok videos response: ${videosText.substring(0, 1000)}...`);
+        
+        if (videosResponse.ok) {
+          try {
+            const videosData = JSON.parse(videosText);
+            
+            // Check for different possible response structures
+            let videosList = [];
+            if (videosData.data && videosData.data.videos) {
+              videosList = videosData.data.videos;
+            } else if (videosData.videos) {
+              videosList = videosData.videos;
+            } else if (Array.isArray(videosData.data)) {
+              videosList = videosData.data;
+            }
+            
+            if (videosList && Array.isArray(videosList) && videosList.length > 0) {
+              console.log(`Found ${videosList.length} real TikTok videos`);
+              
+              const tiktokVideos = videosList.map(video => ({
+                id: video.id || `tiktok-${Date.now()}-${Math.random()}`,
+                platform: 'tiktok',
+                title: video.title || 'TikTok Video',
+                description: video.video_description || '',
+                thumbnail: video.cover_image_url,
+                duration: video.duration,
+                createdAt: video.create_time ? new Date(video.create_time * 1000).toISOString() : new Date().toISOString(),
+                shareUrl: video.share_url,
+                embedLink: video.embed_link,
+                viewCount: video.view_count || 0,
+                likeCount: video.like_count || 0,
+                commentCount: video.comment_count || 0,
+                shareCount: video.share_count || 0
+              }));
+              
+              videos.push(...tiktokVideos);
+            } else {
+              console.log('No videos found in TikTok response, checking if sandbox mode...');
+              
+              // Try alternative endpoint for sandbox mode
+              const sandboxResponse = await fetch(
+                'https://open.tiktokapis.com/v2/video/list/', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${tiktokConnection.access_token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  fields: [
+                    "id", 
+                    "title", 
+                    "video_description", 
+                    "duration", 
+                    "cover_image_url", 
+                    "share_url",
+                    "create_time"
+                  ],
+                  max_count: 20
+                })
+              });
+              
+              if (sandboxResponse.ok) {
+                const sandboxData = await sandboxResponse.json();
+                console.log('Sandbox response:', JSON.stringify(sandboxData, null, 2));
+                
+                if (sandboxData.data && sandboxData.data.videos && Array.isArray(sandboxData.data.videos)) {
+                  const sandboxVideos = sandboxData.data.videos.map(video => ({
+                    id: video.id || `tiktok-${Date.now()}-${Math.random()}`,
+                    platform: 'tiktok',
+                    title: video.title || 'TikTok Video',
+                    description: video.video_description || '',
+                    thumbnail: video.cover_image_url,
+                    duration: video.duration,
+                    createdAt: video.create_time ? new Date(video.create_time * 1000).toISOString() : new Date().toISOString(),
+                    shareUrl: video.share_url,
+                    viewCount: video.view_count || 0,
+                    likeCount: video.like_count || 0,
+                    commentCount: video.comment_count || 0,
+                    shareCount: video.share_count || 0
+                  }));
+                  
+                  videos.push(...sandboxVideos);
+                  console.log(`Added ${sandboxVideos.length} sandbox videos`);
+                }
+              }
+              
+              // If still no videos, create one demo video showing the connection exists
+              if (videos.filter(v => v.platform === 'tiktok').length === 0) {
+                console.log('Creating connection demo video for TikTok');
+                const connectionDemo = {
+                  id: `tiktok-connected-${tiktokConnection.platform_user_id}`,
+                  platform: 'tiktok',
+                  title: `Compte TikTok connecté: ${tiktokConnection.platform_username}`,
+                  description: `Votre compte TikTok est connecté. ${videosList.length > 0 ? 'Aucune vidéo publique trouvée.' : 'Rechargez pour voir vos vidéos.'}`,
+                  thumbnail: 'https://via.placeholder.com/480x640.png?text=TikTok+Connecté',
+                  duration: 30,
+                  createdAt: new Date().toISOString(),
+                  shareUrl: 'https://www.tiktok.com',
+                  viewCount: 0,
+                  likeCount: 0,
+                  commentCount: 0,
+                  shareCount: 0
+                };
+                videos.push(connectionDemo);
+              }
+            }
+            
+          } catch (parseError) {
+            console.error('Error parsing TikTok videos response:', parseError);
+            throw new Error(`Failed to parse TikTok videos: ${parseError.message}`);
+          }
+        } else {
+          console.error(`TikTok videos API error: ${videosResponse.status} - ${videosText}`);
+          
+          // Create fallback demo video
+          const fallbackDemo = {
+            id: `tiktok-api-error-${tiktokConnection.platform_user_id}`,
             platform: 'tiktok',
             title: `Connexion TikTok: ${tiktokConnection.platform_username}`,
-            description: 'Votre compte TikTok est connecté. Rechargez pour voir vos vidéos.',
-            thumbnail: 'https://via.placeholder.com/480x640.png?text=TikTok+Connecté',
+            description: `Votre compte TikTok est connecté mais les vidéos ne peuvent pas être récupérées pour le moment. Code d'erreur: ${videosResponse.status}`,
+            thumbnail: 'https://via.placeholder.com/480x640.png?text=TikTok+API+Error',
             duration: 30,
             createdAt: new Date().toISOString(),
             shareUrl: 'https://www.tiktok.com',
@@ -270,9 +270,29 @@ serve(async (req) => {
             likeCount: 0,
             commentCount: 0,
             shareCount: 0
-          }
-        ];
-        videos.push(...errorDemo);
+          };
+          videos.push(fallbackDemo);
+        }
+        
+      } catch (error) {
+        console.error('Error fetching TikTok data:', error);
+        
+        // Always provide at least one demo video showing the connection exists
+        const errorDemo = {
+          id: `tiktok-error-${tiktokConnection.platform_user_id}`,
+          platform: 'tiktok',
+          title: `Erreur TikTok: ${tiktokConnection.platform_username}`,
+          description: `Votre compte TikTok est connecté mais il y a eu une erreur: ${error.message}`,
+          thumbnail: 'https://via.placeholder.com/480x640.png?text=TikTok+Error',
+          duration: 30,
+          createdAt: new Date().toISOString(),
+          shareUrl: 'https://www.tiktok.com',
+          viewCount: 0,
+          likeCount: 0,
+          commentCount: 0,
+          shareCount: 0
+        };
+        videos.push(errorDemo);
       }
     }
 

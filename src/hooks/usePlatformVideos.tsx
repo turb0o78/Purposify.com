@@ -26,47 +26,35 @@ export const usePlatformVideos = () => {
     queryKey: ['platform-videos'],
     queryFn: async (): Promise<PlatformVideo[]> => {
       try {
-        console.log('Starting platform videos fetch...');
+        console.log('Démarrage de la récupération des vidéos de plateforme...');
         
         // Vérifier d'abord si l'utilisateur est authentifié
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
-          console.log('No authenticated session found');
+          console.log('Aucune session authentifiée trouvée');
           return [];
         }
         
-        console.log('Authenticated session found, invoking edge function...');
+        console.log('Session authentifiée trouvée, appel de la fonction edge...');
         
-        // Ajouter un délai d'attente à la demande
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timed out')), 30000); // 30 secondes de délai
-        });
-        
-        // Créer la promesse de requête réelle
-        const fetchPromise = supabase.functions.invoke('fetch-platform-videos', {
+        // Appeler directement la fonction edge avec le bon token
+        const { data, error } = await supabase.functions.invoke('fetch-platform-videos', {
           headers: {
-            'Cache-Control': 'no-cache'
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
           }
         });
         
-        // Faire la course entre la récupération et le délai d'attente
-        const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
-          .then(result => result as typeof fetchPromise extends Promise<infer T> ? T : never)
-          .catch(err => {
-            console.error("Error or timeout in fetch-platform-videos:", err);
-            return { data: null, error: err };
-          });
-        
         if (error) {
-          console.error("Error fetching platform videos:", error);
+          console.error("Erreur lors de la récupération des vidéos de plateforme:", error);
           
           // Fournir des messages d'erreur plus informatifs
           const errorMessage = typeof error === 'object' && error !== null && 'message' in error
             ? error.message
-            : 'Could not load your platform videos. Please try again later.';
+            : 'Impossible de charger vos vidéos de plateforme. Veuillez réessayer plus tard.';
             
           toast({
-            title: "Error loading videos",
+            title: "Erreur lors du chargement des vidéos",
             description: errorMessage,
             variant: "destructive",
           });
@@ -76,17 +64,17 @@ export const usePlatformVideos = () => {
 
         // Vérifier si les vidéos existent dans la réponse
         if (!data?.videos || !Array.isArray(data.videos)) {
-          console.warn("No videos found in API response", data);
+          console.warn("Aucune vidéo trouvée dans la réponse de l'API", data);
           
           toast({
-            title: "No videos found",
-            description: "We couldn't find any videos for your connected accounts.",
+            title: "Aucune vidéo trouvée",
+            description: "Nous n'avons trouvé aucune vidéo pour vos comptes connectés.",
           });
           
           return [];
         }
 
-        console.log(`Received ${data.videos.length} platform videos`);
+        console.log(`Reçu ${data.videos.length} vidéos de plateforme`);
         
         // Analyser correctement les dates pour s'assurer qu'elles sont des objets Date
         const parsedVideos = data.videos.map(video => ({
@@ -96,11 +84,11 @@ export const usePlatformVideos = () => {
         
         return parsedVideos;
       } catch (error) {
-        console.error("Error in usePlatformVideos hook:", error);
+        console.error("Erreur dans le hook usePlatformVideos:", error);
         
         toast({
-          title: "Error loading videos",
-          description: "There was an error loading your videos. Please refresh and try again.",
+          title: "Erreur lors du chargement des vidéos",
+          description: "Il y a eu une erreur lors du chargement de vos vidéos. Veuillez actualiser et réessayer.",
           variant: "destructive",
         });
         
@@ -108,9 +96,9 @@ export const usePlatformVideos = () => {
         return [];
       }
     },
-    retry: 2, // Réessayer deux fois pour gérer les erreurs transitoires
+    retry: 3, // Augmenter le nombre de tentatives
     refetchOnWindowFocus: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchInterval: 10 * 60 * 1000, // Rafraîchir toutes les 10 minutes
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchInterval: 5 * 60 * 1000, // Rafraîchir toutes les 5 minutes
   });
 };

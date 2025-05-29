@@ -28,7 +28,6 @@ serve(async (req) => {
       rawUrl: req.url
     })
     
-    // Vérifier d'abord les erreurs retournées par TikTok
     if (error) {
       throw new Error(`TikTok authorization error: ${error} - ${errorDescription || 'No description provided'}`)
     }
@@ -41,7 +40,6 @@ serve(async (req) => {
       throw new Error('Missing state parameter')
     }
 
-    // Extraire l'ID utilisateur de l'état (format: userId_csrfToken)
     const userId = state.split('_')[0]
     if (!userId) {
       throw new Error('Invalid state format')
@@ -50,21 +48,17 @@ serve(async (req) => {
     console.log('Processing request for user ID:', userId);
 
     const clientKey = Deno.env.get('TIKTOK_CLIENT_KEY')
-    if (!clientKey) {
-      throw new Error('TikTok client key not configured')
-    }
-    
     const clientSecret = Deno.env.get('TIKTOK_CLIENT_SECRET')
-    if (!clientSecret) {
-      throw new Error('TikTok client secret not configured')
+    
+    if (!clientKey || !clientSecret) {
+      throw new Error('TikTok credentials not configured')
     }
 
-    // Doit correspondre exactement à ce qui a été utilisé dans la demande d'autorisation
     const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tiktok-oauth-callback`
 
     console.log('Exchanging code for access token with redirect URI:', redirectUri)
 
-    // Échanger le code contre un jeton d'accès (en utilisant l'API v2)
+    // Exchange code for access token
     const tokenResponse = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
       method: 'POST',
       headers: {
@@ -87,31 +81,29 @@ serve(async (req) => {
 
     const tokenData = await tokenResponse.json();
     console.log('Successfully obtained access token');
-    console.log('Token response data:', JSON.stringify(tokenData));
 
     if (!tokenData.access_token) {
       throw new Error('No access token received from TikTok');
     }
 
-    // Stocker les informations importantes du jeton
     const accessToken = tokenData.access_token;
     const refreshToken = tokenData.refresh_token || null;
-    const expiresIn = tokenData.expires_in || 86400; // Défaut à 24 heures si non fourni
+    const expiresIn = tokenData.expires_in || 86400;
     const scope = tokenData.scope || 'user.info.basic,video.list,video.upload';
     const openId = tokenData.open_id || null;
     
-    console.log(`Access token obtained with scopes: ${scope}`);
+    console.log(`Access token obtained with scopes: ${scope}, open_id: ${openId}`);
 
-    // Récupérer les informations de profil utilisateur - d'abord essayer avec le point de terminaison userinfo
+    // Get user profile information using the correct TikTok API v2 endpoint
     let username = null;
     let displayName = null;
     let avatarUrl = null;
-    let platformUserId = openId || null;
+    let platformUserId = openId;
     
     try {
       console.log('Fetching TikTok user profile information with access token');
       
-      // Essayez le point de terminaison d'informations utilisateur recommandé en premier
+      // Use the correct TikTok API v2 user info endpoint for sandbox mode
       const userInfoResponse = await fetch(
         'https://open.tiktokapis.com/v2/user/info/', 
         {
@@ -136,92 +128,59 @@ serve(async (req) => {
         }
       );
       
+      console.log(`User info response status: ${userInfoResponse.status}`);
+      const responseText = await userInfoResponse.text();
+      console.log('User info response body:', responseText);
+      
       if (userInfoResponse.ok) {
-        const userInfoData = await userInfoResponse.json();
-        console.log('User info response:', JSON.stringify(userInfoData));
+        const userInfoData = JSON.parse(responseText);
+        console.log('Parsed user info data:', JSON.stringify(userInfoData, null, 2));
         
         if (userInfoData && userInfoData.data && userInfoData.data.user) {
           const user = userInfoData.data.user;
           displayName = user.display_name;
-          username = user.username || displayName;
-          
-          // Obtenez la meilleure URL d'avatar disponible
+          username = user.username || user.display_name;
           avatarUrl = user.avatar_large_url || user.avatar_url_100 || user.avatar_url;
           platformUserId = user.open_id || openId;
           
-          console.log(`Found user profile: display_name=${displayName}, username=${username}, avatar=${avatarUrl ? 'present' : 'missing'}`);
+          console.log(`Successfully retrieved user profile: display_name=${displayName}, username=${username}, avatar=${avatarUrl ? 'present' : 'missing'}, open_id=${platformUserId}`);
         } else {
-          console.log('User data not found in the expected format, trying alternative endpoint');
+          console.log('User data not found in expected format. Response structure:', JSON.stringify(userInfoData, null, 2));
+          
+          // In sandbox mode, TikTok might return limited data, so let's use what we have
+          if (openId) {
+            platformUserId = openId;
+            username = `TikTok_${openId.substring(0, 8)}`;
+            displayName = username;
+            console.log(`Using sandbox fallback: username=${username}, open_id=${platformUserId}`);
+          }
         }
       } else {
-        const errorText = await userInfoResponse.text();
-        console.error(`Failed to get user info: Status ${userInfoResponse.status}`, errorText);
+        console.error(`Failed to get user info: Status ${userInfoResponse.status}`, responseText);
         
-        // Si le format de la requête est invalide, essayons une version plus simple
-        const simpleUserInfoResponse = await fetch(
-          'https://open.tiktokapis.com/v2/user/info/', 
-          {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            }
-          }
-        );
-        
-        if (simpleUserInfoResponse.ok) {
-          const simpleUserInfoData = await simpleUserInfoResponse.json();
-          console.log('Simple user info response:', JSON.stringify(simpleUserInfoData));
-          
-          if (simpleUserInfoData && simpleUserInfoData.data && simpleUserInfoData.data.user) {
-            const user = simpleUserInfoData.data.user;
-            displayName = user.display_name || displayName;
-            username = user.username || displayName;
-            avatarUrl = user.avatar_url || avatarUrl;
-            platformUserId = user.open_id || platformUserId;
-          }
-        }
-      }
-      
-      // Si nous n'avons toujours pas d'informations sur l'utilisateur, essayons le point de terminaison me alternatif
-      if (!username) {
-        console.log('Trying alternative "me" endpoint');
-        
-        // Essayons l'endpoint me V2
-        const meResponse = await fetch(
-          'https://open.tiktokapis.com/v2/user/info/', 
-          {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-            }
-          }
-        );
-        
-        if (meResponse.ok) {
-          const meData = await meResponse.json();
-          console.log('Me endpoint response:', JSON.stringify(meData));
-          
-          if (meData && meData.data && meData.data.user) {
-            displayName = meData.data.user.display_name || displayName;
-            username = meData.data.user.username || displayName;
-            avatarUrl = meData.data.user.avatar_url || avatarUrl;
-            platformUserId = meData.data.user.open_id || platformUserId;
-            
-            console.log(`Updated user profile from "me" endpoint: username=${username}, avatar=${avatarUrl ? 'present' : 'missing'}`);
-          }
+        // For sandbox mode, create a meaningful username from the open_id
+        if (openId) {
+          platformUserId = openId;
+          username = `TikTok_${openId.substring(0, 8)}`;
+          displayName = username;
+          console.log(`Using error fallback for sandbox: username=${username}, open_id=${platformUserId}`);
         } else {
-          console.error('Failed to get user info from me endpoint:', await meResponse.text());
+          throw new Error('Unable to retrieve user information and no open_id available');
         }
       }
       
-      // Dernier recours - utiliser un nom par défaut si nous n'avons pas pu obtenir le nom d'utilisateur
-      if (!username && !displayName) {
-        username = "TikTok User";
-        displayName = "TikTok User";
-        console.log(`Using fallback username: ${username}`);
+      // Ensure we have minimum required data
+      if (!platformUserId) {
+        throw new Error('Unable to retrieve platform user ID from TikTok');
       }
       
-      // Initialiser le client Supabase
+      if (!username && !displayName) {
+        username = `TikTok_${platformUserId.substring(0, 8)}`;
+        displayName = username;
+        console.log(`Using final fallback username: ${username}`);
+      }
+      
+      // Initialize Supabase client
       const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
@@ -229,10 +188,10 @@ serve(async (req) => {
         throw new Error('Supabase credentials not configured');
       }
 
-      console.log('Creating Supabase client with URL:', supabaseUrl);
+      console.log('Creating Supabase client');
       const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-      // Vérifier si la connexion existe déjà
+      // Check for existing connection
       const { data: existingConnection, error: fetchError } = await supabaseClient
         .from('platform_connections')
         .select('id')
@@ -245,13 +204,7 @@ serve(async (req) => {
         throw new Error(`Failed to check for existing connection: ${fetchError.message}`);
       }
 
-      // S'assurer que nous avons les champs requis
-      if (!platformUserId) {
-        platformUserId = openId || `tiktok-${Date.now()}`; // ID de repli
-        console.log(`Using fallback platform user ID: ${platformUserId}`);
-      }
-      
-      const finalUsername = username || displayName || "TikTok User";
+      const finalUsername = username || displayName || `TikTok_${platformUserId.substring(0, 8)}`;
       const connectionData = {
         platform_user_id: platformUserId,
         platform_username: finalUsername,
@@ -262,76 +215,71 @@ serve(async (req) => {
         scopes: scope
       };
       
-      // Consigner ce que nous enregistrons dans la base de données
       console.log('Saving TikTok connection with data:', {
         ...connectionData,
         access_token: 'REDACTED',
         refresh_token: refreshToken ? 'REDACTED' : null
       });
       
-      // Mettre à jour ou créer la connexion
-      try {
-        if (existingConnection) {
-          console.log('Updating existing connection:', existingConnection.id);
-          const { error: updateError } = await supabaseClient
-            .from('platform_connections')
-            .update({
-              ...connectionData,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', existingConnection.id);
-          
-          if (updateError) {
-            console.error('Error updating connection:', updateError);
-            throw new Error(`Failed to update connection data: ${updateError.message}`);
-          }
-          
-          console.log('Successfully updated TikTok connection');
-        } else {
-          console.log('Creating new connection for user:', userId);
-          const { error: insertError } = await supabaseClient
-            .from('platform_connections')
-            .insert({
-              user_id: userId,
-              platform: 'tiktok',
-              ...connectionData
-            });
-          
-          if (insertError) {
-            console.error('Error creating connection:', insertError);
-            throw new Error(`Failed to create connection data: ${insertError.message}`);
-          }
-          
-          console.log('Successfully created new TikTok connection');
-        }
-
-        // Vérifier que la connexion a été correctement enregistrée
-        const { data: verifyConnection, error: verifyError } = await supabaseClient
+      // Update or create connection
+      if (existingConnection) {
+        console.log('Updating existing connection:', existingConnection.id);
+        const { error: updateError } = await supabaseClient
           .from('platform_connections')
-          .select('platform_username, platform_user_id, access_token')
-          .eq('user_id', userId)
-          .eq('platform', 'tiktok')
-          .single();
-          
-        if (verifyError) {
-          console.error('Error verifying connection data:', verifyError);
-        } else {
-          console.log('Verified connection in database:', {
-            username: verifyConnection.platform_username,
-            user_id: verifyConnection.platform_user_id,
-            token_exists: !!verifyConnection.access_token
-          });
+          .update({
+            ...connectionData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingConnection.id);
+        
+        if (updateError) {
+          console.error('Error updating connection:', updateError);
+          throw new Error(`Failed to update connection data: ${updateError.message}`);
         }
-      } catch (dbError) {
-        console.error('Error storing connection in database:', dbError);
-        throw new Error(`Failed to store connection data: ${dbError.message}`);
+        
+        console.log('Successfully updated TikTok connection');
+      } else {
+        console.log('Creating new connection for user:', userId);
+        const { error: insertError } = await supabaseClient
+          .from('platform_connections')
+          .insert({
+            user_id: userId,
+            platform: 'tiktok',
+            ...connectionData
+          });
+        
+        if (insertError) {
+          console.error('Error creating connection:', insertError);
+          throw new Error(`Failed to create connection data: ${insertError.message}`);
+        }
+        
+        console.log('Successfully created new TikTok connection');
       }
+
+      // Verify the connection was saved correctly
+      const { data: verifyConnection, error: verifyError } = await supabaseClient
+        .from('platform_connections')
+        .select('platform_username, platform_user_id, access_token')
+        .eq('user_id', userId)
+        .eq('platform', 'tiktok')
+        .single();
+        
+      if (verifyError) {
+        console.error('Error verifying connection data:', verifyError);
+      } else {
+        console.log('Verified connection in database:', {
+          username: verifyConnection.platform_username,
+          user_id: verifyConnection.platform_user_id,
+          token_exists: !!verifyConnection.access_token
+        });
+      }
+      
     } catch (userInfoError) {
       console.error('Error in user profile handling:', userInfoError);
       throw userInfoError;
     }
 
-    // Rediriger vers l'application avec le paramètre de succès
+    // Redirect to success page
     const redirectUrl = 'https://opaldesign.fr/connections?success=true';
     console.log('Redirecting to:', redirectUrl);
     
@@ -345,7 +293,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('TikTok OAuth callback error:', error.message);
     
-    // Rediriger vers l'application avec le paramètre d'erreur
+    // Redirect to error page
     const errorUrl = 'https://opaldesign.fr/connections?error=' + encodeURIComponent(error.message);
     console.log('Redirecting to error URL:', errorUrl);
     

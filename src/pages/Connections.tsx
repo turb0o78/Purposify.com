@@ -125,14 +125,33 @@ const Connections = () => {
         }
 
         if (existingConnections && existingConnections.length > 0) {
-          setConnections(existingConnections.map(conn => ({
-            id: conn.id,
-            platform: conn.platform,
-            name: conn.platform_username || `${conn.platform} Account`,
-            status: "connected" as const,
-            avatar: conn.platform_avatar_url,
-            connected_at: new Date(conn.created_at),
-          })));
+          const mappedConnections = existingConnections.map(conn => {
+            // Create a more meaningful display name
+            let displayName = conn.platform_username;
+            
+            // For TikTok, improve the display name if it's still the default
+            if (conn.platform === 'tiktok' && 
+                (conn.platform_username === 'TikTok User' || 
+                 conn.platform_username?.startsWith('TikTok_'))) {
+              displayName = conn.platform_user_id ? 
+                `TikTok Account (${conn.platform_user_id.substring(0, 8)}...)` : 
+                'TikTok Account';
+            }
+            
+            return {
+              id: conn.id,
+              platform: conn.platform,
+              name: displayName || `${conn.platform} Account`,
+              status: "connected" as const,
+              avatar: conn.platform_avatar_url,
+              connected_at: new Date(conn.created_at),
+            };
+          });
+          
+          setConnections(mappedConnections);
+          
+          // Log connection details for debugging
+          console.log('Mapped connections:', mappedConnections);
         } else {
           setConnections([]);
         }

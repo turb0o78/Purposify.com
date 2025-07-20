@@ -133,37 +133,80 @@ serve(async (req) => {
       console.log('User info response body:', responseText);
       
       if (userInfoResponse.ok) {
-        const userInfoData = JSON.parse(responseText);
-        console.log('Parsed user info data:', JSON.stringify(userInfoData, null, 2));
-        
-        if (userInfoData && userInfoData.data && userInfoData.data.user) {
-          const user = userInfoData.data.user;
-          displayName = user.display_name;
-          username = user.username || user.display_name;
-          avatarUrl = user.avatar_large_url || user.avatar_url_100 || user.avatar_url;
-          platformUserId = user.open_id || openId;
+        try {
+          const userInfoData = JSON.parse(responseText);
+          console.log('Parsed user info data:', JSON.stringify(userInfoData, null, 2));
           
-          console.log(`Successfully retrieved user profile: display_name=${displayName}, username=${username}, avatar=${avatarUrl ? 'present' : 'missing'}, open_id=${platformUserId}`);
-        } else {
-          console.log('User data not found in expected format. Response structure:', JSON.stringify(userInfoData, null, 2));
+          if (userInfoData && userInfoData.data && userInfoData.data.user) {
+            const user = userInfoData.data.user;
+            displayName = user.display_name;
+            username = user.username || user.display_name;
+            avatarUrl = user.avatar_large_url || user.avatar_url_100 || user.avatar_url;
+            platformUserId = user.open_id || openId;
+            
+            console.log(`Successfully retrieved user profile: display_name=${displayName}, username=${username}, avatar=${avatarUrl ? 'present' : 'missing'}, open_id=${platformUserId}`);
+          } else {
+            console.log('User data not found in expected format. Using fallback.');
+            
+            // Fallback for sandbox or limited data
+            if (openId) {
+              platformUserId = openId;
+              username = `TikTok_${openId.substring(0, 8)}`;
+              displayName = `TikTok User ${openId.substring(0, 8)}`;
+              console.log(`Using data fallback: username=${username}, display_name=${displayName}, open_id=${platformUserId}`);
+            }
+          }
+        } catch (parseError) {
+          console.error('Failed to parse user info response:', parseError);
           
-          // In sandbox mode, TikTok might return limited data, so let's use what we have
+          // Fallback for parse errors
           if (openId) {
             platformUserId = openId;
             username = `TikTok_${openId.substring(0, 8)}`;
-            displayName = username;
-            console.log(`Using sandbox fallback: username=${username}, open_id=${platformUserId}`);
+            displayName = `TikTok User ${openId.substring(0, 8)}`;
+            console.log(`Using parse error fallback: username=${username}, display_name=${displayName}, open_id=${platformUserId}`);
           }
         }
       } else {
         console.error(`Failed to get user info: Status ${userInfoResponse.status}`, responseText);
         
-        // For sandbox mode, create a meaningful username from the open_id
+        // For any error, create a meaningful username from the open_id
         if (openId) {
           platformUserId = openId;
-          username = `TikTok_${openId.substring(0, 8)}`;
-          displayName = username;
-          console.log(`Using error fallback for sandbox: username=${username}, open_id=${platformUserId}`);
+          
+          // Try to get actual TikTok username from their API in a different way
+          try {
+            // Alternative method: try to get basic info
+            const basicInfoResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                fields: ["open_id", "display_name"]
+              })
+            });
+            
+            if (basicInfoResponse.ok) {
+              const basicData = await basicInfoResponse.json();
+              if (basicData?.data?.user?.display_name) {
+                displayName = basicData.data.user.display_name;
+                username = basicData.data.user.display_name;
+                console.log(`Retrieved basic user info: ${displayName}`);
+              }
+            }
+          } catch (altError) {
+            console.log('Alternative user info method also failed:', altError);
+          }
+          
+          // Final fallback
+          if (!username && !displayName) {
+            username = `TikTok_${openId.substring(0, 8)}`;
+            displayName = `TikTok User ${openId.substring(0, 8)}`;
+          }
+          
+          console.log(`Using error fallback: username=${username}, display_name=${displayName}, open_id=${platformUserId}`);
         } else {
           throw new Error('Unable to retrieve user information and no open_id available');
         }
@@ -176,8 +219,8 @@ serve(async (req) => {
       
       if (!username && !displayName) {
         username = `TikTok_${platformUserId.substring(0, 8)}`;
-        displayName = username;
-        console.log(`Using final fallback username: ${username}`);
+        displayName = `TikTok User ${platformUserId.substring(0, 8)}`;
+        console.log(`Using final fallback: username=${username}, display_name=${displayName}`);
       }
       
       // Initialize Supabase client

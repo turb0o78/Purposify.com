@@ -110,11 +110,57 @@ serve(async (req) => {
           }
         }
         
-        // Try both endpoints - /v2/video/query/ first, then /v2/video/list/ for sandbox
-        console.log('Fetching TikTok videos using /v2/video/query/ endpoint...');
+        // First refresh user info to get latest profile details
+        console.log('Refreshing TikTok user profile information...');
+        try {
+          const freshUserInfoResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${tiktokConnection.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              fields: [
+                "open_id", "union_id", "avatar_url", "avatar_url_100", 
+                "avatar_large_url", "display_name", "username", "bio_description"
+              ]
+            })
+          });
+
+          if (freshUserInfoResponse.ok) {
+            const freshUserData = await freshUserInfoResponse.json();
+            console.log('Fresh user info:', JSON.stringify(freshUserData, null, 2));
+            
+            if (freshUserData.data && freshUserData.data.user) {
+              const user = freshUserData.data.user;
+              const updatedUsername = user.username || user.display_name || tiktokConnection.platform_username;
+              const updatedAvatar = user.avatar_large_url || user.avatar_url_100 || user.avatar_url;
+              
+              // Update connection in database with fresh info
+              const { error: updateError } = await supabaseClient
+                .from('platform_connections')
+                .update({
+                  platform_username: updatedUsername,
+                  platform_avatar_url: updatedAvatar,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', tiktokConnection.id);
+                
+              if (!updateError) {
+                console.log(`Updated TikTok connection: ${updatedUsername}`);
+                tiktokConnection.platform_username = updatedUsername;
+                tiktokConnection.platform_avatar_url = updatedAvatar;
+              }
+            }
+          }
+        } catch (userUpdateError) {
+          console.log('Could not refresh user info:', userUpdateError);
+        }
+
+        // Now try to fetch videos using the correct TikTok API endpoints
+        console.log('Fetching TikTok videos - trying /v2/video/list/ first (sandbox compatible)...');
         
-        let videosResponse = await fetch(
-          'https://open.tiktokapis.com/v2/video/query/', {
+        let videosResponse = await fetch('https://open.tiktokapis.com/v2/video/list/', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${tiktokConnection.access_token}`,
@@ -122,47 +168,44 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             fields: [
-              "id", 
-              "title", 
-              "video_description", 
-              "duration", 
-              "cover_image_url", 
-              "share_url",
-              "create_time",
-              "view_count",
-              "like_count",
-              "comment_count",
-              "share_count",
-              "embed_link"
+              "id", "title", "video_description", "duration", "cover_image_url", 
+              "share_url", "create_time", "view_count", "like_count", 
+              "comment_count", "share_count", "embed_link", "embed_html"
             ],
-            max_count: 20,
-            cursor: 0
+            max_count: 20
           })
         });
         
-        // If query endpoint fails, try list endpoint (for sandbox mode)
-        if (!videosResponse.ok && videosResponse.status === 400) {
-          console.log('Query endpoint failed, trying /v2/video/list/ for sandbox mode...');
-          videosResponse = await fetch(
-            'https://open.tiktokapis.com/v2/video/list/', {
+        console.log(`TikTok video list response status: ${videosResponse.status}`);
+        let videosText = await videosResponse.text();
+        console.log(`TikTok video list response: ${videosText.substring(0, 1000)}...`);
+        
+        // If list endpoint fails with field requirements, try query endpoint
+        if (!videosResponse.ok) {
+          console.log('List endpoint failed, trying /v2/video/query/ endpoint...');
+          
+          videosResponse = await fetch('https://open.tiktokapis.com/v2/video/query/', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${tiktokConnection.access_token}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
+              filters: {
+                video_ids: [] // Empty array gets recent videos
+              },
               fields: [
-                "id", 
-                "title", 
-                "video_description", 
-                "duration", 
-                "cover_image_url", 
-                "share_url",
-                "create_time"
+                "id", "title", "video_description", "duration", "cover_image_url", 
+                "share_url", "create_time", "publish_time", "view_count", 
+                "like_count", "comment_count", "share_count", "embed_link", "embed_html"
               ],
               max_count: 20
             })
           });
+          
+          console.log(`TikTok video query response status: ${videosResponse.status}`);
+          videosText = await videosResponse.text();
+          console.log(`TikTok video query response: ${videosText.substring(0, 1000)}...`);
         }
         
         console.log(`TikTok videos response status: ${videosResponse.status}`);

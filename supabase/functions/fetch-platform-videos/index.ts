@@ -110,10 +110,10 @@ serve(async (req) => {
           }
         }
         
-        // Now try to fetch videos using the correct TikTok API v2 endpoint
+        // Try both endpoints - /v2/video/query/ first, then /v2/video/list/ for sandbox
         console.log('Fetching TikTok videos using /v2/video/query/ endpoint...');
         
-        const videosResponse = await fetch(
+        let videosResponse = await fetch(
           'https://open.tiktokapis.com/v2/video/query/', {
           method: 'POST',
           headers: {
@@ -139,6 +139,31 @@ serve(async (req) => {
             cursor: 0
           })
         });
+        
+        // If query endpoint fails, try list endpoint (for sandbox mode)
+        if (!videosResponse.ok && videosResponse.status === 400) {
+          console.log('Query endpoint failed, trying /v2/video/list/ for sandbox mode...');
+          videosResponse = await fetch(
+            'https://open.tiktokapis.com/v2/video/list/', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${tiktokConnection.access_token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              fields: [
+                "id", 
+                "title", 
+                "video_description", 
+                "duration", 
+                "cover_image_url", 
+                "share_url",
+                "create_time"
+              ],
+              max_count: 20
+            })
+          });
+        }
         
         console.log(`TikTok videos response status: ${videosResponse.status}`);
         const videosText = await videosResponse.text();
@@ -179,64 +204,17 @@ serve(async (req) => {
               
               videos.push(...tiktokVideos);
             } else {
-              console.log('No videos found in TikTok response, checking if sandbox mode...');
+              console.log('No videos found in TikTok response');
               
-              // Try alternative endpoint for sandbox mode
-              const sandboxResponse = await fetch(
-                'https://open.tiktokapis.com/v2/video/list/', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${tiktokConnection.access_token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  fields: [
-                    "id", 
-                    "title", 
-                    "video_description", 
-                    "duration", 
-                    "cover_image_url", 
-                    "share_url",
-                    "create_time"
-                  ],
-                  max_count: 20
-                })
-              });
-              
-              if (sandboxResponse.ok) {
-                const sandboxData = await sandboxResponse.json();
-                console.log('Sandbox response:', JSON.stringify(sandboxData, null, 2));
-                
-                if (sandboxData.data && sandboxData.data.videos && Array.isArray(sandboxData.data.videos)) {
-                  const sandboxVideos = sandboxData.data.videos.map(video => ({
-                    id: video.id || `tiktok-${Date.now()}-${Math.random()}`,
-                    platform: 'tiktok',
-                    title: video.title || 'TikTok Video',
-                    description: video.video_description || '',
-                    thumbnail: video.cover_image_url,
-                    duration: video.duration,
-                    createdAt: video.create_time ? new Date(video.create_time * 1000).toISOString() : new Date().toISOString(),
-                    shareUrl: video.share_url,
-                    viewCount: video.view_count || 0,
-                    likeCount: video.like_count || 0,
-                    commentCount: video.comment_count || 0,
-                    shareCount: video.share_count || 0
-                  }));
-                  
-                  videos.push(...sandboxVideos);
-                  console.log(`Added ${sandboxVideos.length} sandbox videos`);
-                }
-              }
-              
-              // If still no videos, create one demo video showing the connection exists
+              // If still no videos, show connection status
               if (videos.filter(v => v.platform === 'tiktok').length === 0) {
-                console.log('Creating connection demo video for TikTok');
+                console.log('Creating connection status video for TikTok');
                 const connectionDemo = {
                   id: `tiktok-connected-${tiktokConnection.platform_user_id}`,
                   platform: 'tiktok',
-                  title: `Compte TikTok connecté: ${tiktokConnection.platform_username}`,
-                  description: `Votre compte TikTok est connecté. ${videosList.length > 0 ? 'Aucune vidéo publique trouvée.' : 'Rechargez pour voir vos vidéos.'}`,
-                  thumbnail: 'https://via.placeholder.com/480x640.png?text=TikTok+Connecté',
+                  title: `${tiktokConnection.platform_username}`,
+                  description: `Votre compte TikTok est connecté. ${Array.isArray(videosList) && videosList.length === 0 ? 'Aucune vidéo publique trouvée.' : 'Vérifiez les permissions ou réessayez plus tard.'}`,
+                  thumbnail: tiktokConnection.platform_avatar_url || 'https://via.placeholder.com/480x640.png?text=TikTok',
                   duration: 30,
                   createdAt: new Date().toISOString(),
                   shareUrl: 'https://www.tiktok.com',

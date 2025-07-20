@@ -103,7 +103,7 @@ serve(async (req) => {
     try {
       console.log('Fetching TikTok user profile information with access token');
       
-      // Use the correct TikTok API v2 user info endpoint for sandbox mode
+      // Use the correct TikTok API v2 user info endpoint
       const userInfoResponse = await fetch(
         'https://open.tiktokapis.com/v2/user/info/', 
         {
